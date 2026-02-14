@@ -196,8 +196,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Reset interrupt flag
     processing_interrupted = False
 
-    # Send "typing" indicator
-    await update.message.chat.send_action(action="typing")
+    # Send "typing" indicator (ignore if it fails due to network issues)
+    try:
+        await update.message.chat.send_action(action="typing")
+    except Exception as e:
+        logger.warning(f"Failed to send typing indicator: {e}")
 
     try:
         # Get recent conversation history
