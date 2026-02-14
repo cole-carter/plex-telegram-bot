@@ -98,6 +98,15 @@ api-call radarr DELETE /movie/123 -q "deleteFiles=true"
 
 ### qBittorrent Web API v2 - Key Endpoints
 
+**⚠️ CRITICAL: Understanding qBittorrent API Responses**
+
+qBittorrent POST endpoints return **empty responses on success**. This is the API's standard behavior:
+- Empty response = Success
+- Error message in response = Failure
+- Status code 200 with empty body = Operation completed successfully
+
+**Do NOT waste turns troubleshooting or verifying when you get empty responses.** Trust the API and move forward with the next step. Only investigate if you receive an actual error message or non-200 status code.
+
 **List torrents:**
 ```bash
 api-call qbt GET /torrents/info
