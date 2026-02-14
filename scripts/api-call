@@ -83,8 +83,10 @@ def make_request(service, method, endpoint, query=None, data=None):
     api_path = config.get('api_path', '')
     url = f"{base}{api_path}{endpoint}"
 
-    # Build headers
-    headers = {"Content-Type": "application/json"}
+    # Build headers (qBittorrent uses form data, others use JSON)
+    headers = {}
+    if service != "qbt":
+        headers["Content-Type"] = "application/json"
 
     # Handle authentication
     session = requests.Session()
@@ -116,11 +118,20 @@ def make_request(service, method, endpoint, query=None, data=None):
     # Parse query parameters
     params = parse_query_string(query) if query else None
 
-    # Parse JSON data
+    # Parse data - format depends on service
     json_data = None
+    form_data = None
+
     if data:
         try:
-            json_data = json.loads(data)
+            parsed_data = json.loads(data)
+
+            # qBittorrent expects form data, others expect JSON
+            if service == "qbt":
+                form_data = parsed_data
+            else:
+                json_data = parsed_data
+
         except json.JSONDecodeError as e:
             print(f"Error: Invalid JSON data: {e}")
             sys.exit(1)
@@ -133,6 +144,7 @@ def make_request(service, method, endpoint, query=None, data=None):
             headers=headers,
             params=params,
             json=json_data,
+            data=form_data,
             timeout=30,
         )
 

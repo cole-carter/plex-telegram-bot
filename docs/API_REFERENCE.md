@@ -4,11 +4,95 @@ This file contains extended API documentation, examples, and notes that suppleme
 
 ## Sonarr Extended Examples
 
-*(Add complex Sonarr workflows here)*
+### Sonarr API v3 - Key Endpoints
+
+**Search for TV show:**
+```bash
+api-call sonarr GET /series/lookup -q "term=Breaking Bad"
+```
+Returns array of shows with `title`, `tvdbId`, `year`, `seasons`, etc.
+
+**Add TV show:**
+```bash
+api-call sonarr POST /series -d '{
+  "tvdbId": 81189,
+  "title": "Breaking Bad",
+  "qualityProfileId": 1,
+  "languageProfileId": 1,
+  "rootFolderPath": "/mnt/storage/TV Shows",
+  "seasonFolder": true,
+  "monitored": true,
+  "addOptions": {"searchForMissingEpisodes": true}
+}'
+```
+
+**Get all series:**
+```bash
+api-call sonarr GET /series
+```
+
+**Search for episodes (trigger download):**
+```bash
+api-call sonarr POST /command -d '{"name": "EpisodeSearch", "episodeIds": [123, 456]}'
+```
+
+**Get root folders:**
+```bash
+api-call sonarr GET /rootfolder
+```
+
+**Get quality profiles:**
+```bash
+api-call sonarr GET /qualityprofile
+```
 
 ## Radarr Extended Examples
 
-*(Add complex Radarr workflows here)*
+### Radarr API v3 - Key Endpoints
+
+**Search for movie:**
+```bash
+api-call radarr GET /movie/lookup -q "term=The Matrix"
+```
+Returns array of movies with `title`, `tmdbId`, `year`, `runtime`, etc.
+
+**Add movie:**
+```bash
+api-call radarr POST /movie -d '{
+  "tmdbId": 603,
+  "title": "The Matrix",
+  "year": 1999,
+  "qualityProfileId": 1,
+  "rootFolderPath": "/mnt/storage/Movies",
+  "monitored": true,
+  "addOptions": {"searchForMovie": true}
+}'
+```
+
+**Get all movies:**
+```bash
+api-call radarr GET /movie
+```
+
+**Search for movie (trigger download):**
+```bash
+api-call radarr POST /command -d '{"name": "MoviesSearch", "movieIds": [123]}'
+```
+
+**Get root folders:**
+```bash
+api-call radarr GET /rootfolder
+```
+
+**Get quality profiles:**
+```bash
+api-call radarr GET /qualityprofile
+```
+
+**Delete movie:**
+```bash
+api-call radarr DELETE /movie/123 -q "deleteFiles=true"
+```
 
 ## qBittorrent Extended Examples
 
@@ -64,7 +148,51 @@ Returns detailed info including save_path, download progress, etc.
 
 ## Plex Extended Examples
 
-*(Add complex Plex workflows here)*
+### Plex Media Server API - Key Endpoints
+
+**Get all library sections:**
+```bash
+api-call plex GET /library/sections
+```
+Returns all libraries with their section IDs (e.g., 1=Movies, 2=TV Shows)
+
+**Get all items in a library:**
+```bash
+api-call plex GET '/library/sections/1/all'
+```
+Use section ID from above. Returns all media in that library.
+
+**Get items with pagination:**
+```bash
+api-call plex GET '/library/sections/1/all' -q 'X-Plex-Container-Start=0&X-Plex-Container-Size=50'
+```
+Start at index 0, return 50 items.
+
+**Filter by genre:**
+```bash
+api-call plex GET '/library/sections/1/all?genre=Comedy'
+```
+
+**Filter by year:**
+```bash
+api-call plex GET '/library/sections/1/all?year=2020'
+```
+
+**Search across library:**
+```bash
+api-call plex GET /library/sections/1/search -q 'query=Matrix'
+```
+
+**Refresh/scan library:**
+```bash
+api-call plex GET /library/sections/1/refresh
+```
+Triggers Plex to scan for new/changed media files.
+
+**Get recently added:**
+```bash
+api-call plex GET /library/recentlyAdded
+```
 
 ## Multi-Service Workflows
 
