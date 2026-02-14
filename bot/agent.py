@@ -148,7 +148,25 @@ class PlexAgent:
 
         return result
 
-    def process_message(self, user_message: str, conversation_history=None, max_turns: int = 7, interrupt_flag=None) -> str:
+    def _format_tool_description(self, tool_name: str, tool_input: Dict[str, Any]) -> str:
+        """Generate a user-friendly description of a tool call."""
+        if tool_name == "execute_command":
+            cmd = tool_input.get("command", "")
+            # Parse common command patterns for better descriptions
+            if cmd.startswith("api-call"):
+                parts = cmd.split()
+                if len(parts) >= 3:
+                    service = parts[1]
+                    endpoint = parts[3] if len(parts) > 3 else ""
+                    return f"Calling {service.upper()} API{f': {endpoint}' if endpoint else ''}"
+            return f"Running: {cmd[:50]}"
+        elif tool_name == "read_docs":
+            return f"Reading {tool_input.get('file', 'documentation')}"
+        elif tool_name == "update_docs":
+            return f"Updating {tool_input.get('file', 'documentation')}"
+        return f"Using {tool_name}"
+
+    def process_message(self, user_message: str, conversation_history=None, max_turns: int = 7, interrupt_flag=None, progress_callback=None) -> str:
         """
         Process a user message and return the agent's response.
 
@@ -157,6 +175,7 @@ class PlexAgent:
             conversation_history: List of previous messages in this conversation
             max_turns: Maximum number of agent turns (API calls) to prevent infinite loops
             interrupt_flag: Callable that returns True if processing should be interrupted
+            progress_callback: Optional callback(description, completed) for progress updates
 
         Returns:
             The agent's final response
@@ -215,8 +234,18 @@ class PlexAgent:
                         tool_name = block.name
                         tool_input = block.input
 
+                        # Notify progress callback that tool is starting
+                        if progress_callback:
+                            description = self._format_tool_description(tool_name, tool_input)
+                            progress_callback(description, completed=False)
+
                         # Execute the tool
                         result = self._execute_tool(tool_name, tool_input)
+
+                        # Notify progress callback that tool is complete
+                        if progress_callback:
+                            description = self._format_tool_description(tool_name, tool_input)
+                            progress_callback(description, completed=True)
 
                         # Format result for Claude
                         if result.get("success"):

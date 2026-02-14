@@ -1,5 +1,6 @@
 """Plex Telegram Bot - Main entry point."""
 
+import asyncio
 import logging
 from pathlib import Path
 from datetime import datetime
@@ -196,21 +197,51 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Reset interrupt flag
     processing_interrupted = False
 
-    # Send "typing" indicator (ignore if it fails due to network issues)
-    try:
-        await update.message.chat.send_action(action="typing")
-    except Exception as e:
-        logger.warning(f"Failed to send typing indicator: {e}")
+    # Send initial progress message
+    progress_message = await update.message.reply_text("⏳ Working on your request...")
 
     try:
         # Get recent conversation history
         history = conversation_history[user_id]
 
-        # Process message with agent (with history)
+        # Track progress actions
+        actions = []
+
+        # Create progress callback
+        def progress_callback(description: str, completed: bool):
+            """Update progress message as agent executes tools."""
+            # Update or add action
+            found = False
+            for action in actions:
+                if action["description"] == description:
+                    action["completed"] = completed
+                    found = True
+                    break
+
+            if not found:
+                actions.append({"description": description, "completed": completed})
+
+            # Format progress message
+            lines = []
+            for action in actions:
+                emoji = "✓" if action["completed"] else "⏳"
+                lines.append(f"{emoji} {action['description']}")
+
+            progress_text = "\n".join(lines) if lines else "⏳ Working on your request..."
+
+            # Schedule message edit (runs async without blocking agent)
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(progress_message.edit_text(progress_text))
+            except Exception as e:
+                logger.warning(f"Failed to update progress message: {e}")
+
+        # Process message with agent (with history and progress callback)
         response = agent.process_message(
             user_message,
             conversation_history=history,
-            interrupt_flag=lambda: processing_interrupted
+            interrupt_flag=lambda: processing_interrupted,
+            progress_callback=progress_callback
         )
 
         # Check if interrupted
@@ -218,7 +249,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             response = "⏹️ Task interrupted."
             processing_interrupted = False
 
-        # Send response
+        # Send final response as NEW message (don't edit progress message)
         await update.message.reply_text(response)
 
         # Update conversation history (truncate long messages to prevent context overflow)
