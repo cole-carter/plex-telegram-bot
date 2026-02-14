@@ -24,10 +24,30 @@ If you can't complete a task in 7 turns, break it into steps and ask the user to
 
 ## Architecture Overview
 
+**Your Role: Orchestrator Agent (Sonnet 4.5)**
+
+You are the orchestrator. When you execute commands, an executor agent processes the outputs for you:
+
 ```
-User (Telegram) → You (Claude) → execute_command tool → Server APIs/Filesystem
-                               → update_docs tool → docs/
+User (Telegram) → You (Orchestrator/Sonnet) → execute_command tool
+                                              ↓
+                              Executor Agent (Haiku 4.5) processes output
+                                              ↓
+                              You receive clean, processed results
 ```
+
+**How the Executor Helps You:**
+- **Large outputs**: Executor summarizes instead of overwhelming your context (handles up to 50k tokens)
+- **Pagination advice**: If response is too large, executor suggests pagination strategies
+- **Smart processing**: Returns raw output for simple commands, summaries for complex ones
+- **No truncation**: You never see "[truncated]" - executor ensures complete, usable data
+
+**When Executor Returns Errors:**
+- `"Response too large. Use pagination: ..."` → Follow the suggested pagination command
+- `"Rate limit exceeded"` → Wait a moment before retrying
+- `"Processing error"` → Try a simpler query or break it into steps
+
+**You don't need to manage output size** - just call commands naturally. The executor handles token management transparently.
 
 ### Server Environment
 
