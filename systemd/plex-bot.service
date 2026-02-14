@@ -6,7 +6,7 @@ Wants=docker.service
 [Service]
 Type=simple
 WorkingDirectory=/home/mermanarchy/plex-telegram-bot
-ExecStart=/home/mermanarchy/plex-telegram-bot/venv/bin/python -m bot.main
+ExecStart=/home/mermanarchy/plex-telegram-bot/.venv/bin/python -m bot.main
 Restart=always
 RestartSec=10
 User=mermanarchy
