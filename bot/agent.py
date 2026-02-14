@@ -138,7 +138,7 @@ class PlexAgent:
 
         return result
 
-    def process_message(self, user_message: str, conversation_history=None, max_turns: int = 5, interrupt_flag=None) -> str:
+    def process_message(self, user_message: str, conversation_history=None, max_turns: int = 7, interrupt_flag=None) -> str:
         """
         Process a user message and return the agent's response.
 

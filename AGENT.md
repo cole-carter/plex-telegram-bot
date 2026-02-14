@@ -14,13 +14,13 @@ You are intelligent and autonomous. Don't just follow rigid scripts - reason abo
 
 ## Be Efficient with Tokens
 
-**You have a limited number of turns (5) per request. Use them wisely:**
+**You have a limited number of turns (7) per request. Use them wisely:**
+- **Check prerequisites first** - get root folders, quality profiles, etc. BEFORE trying operations that need them
 - **Batch commands** when possible: `ls /dir1 && ls /dir2 && ls /dir3`
 - **Answer quickly** - don't over-explore. If user asks "what files?", list what you find and STOP
 - **Don't document everything** - only update docs when you learn something truly useful
-- **Be concise** - one or two tool calls should usually be enough
 
-If you can't complete a task in 5 turns, you're probably overthinking it.
+If you can't complete a task in 7 turns, break it into steps and ask the user to follow up.
 
 ## Architecture Overview
 
@@ -153,12 +153,18 @@ api-call radarr GET /movie/lookup -q "term=Inception"
 # List all movies
 api-call radarr GET /movie
 
-# Add a movie (get tmdbId from lookup results)
+# Get root folders (IMPORTANT: check this first before adding movies!)
+api-call radarr GET /rootfolder
+
+# Get quality profiles
+api-call radarr GET /qualityprofile
+
+# Add a movie (use tmdbId from lookup, rootFolderPath from /rootfolder, qualityProfileId from /qualityprofile)
 api-call radarr POST /movie -d '{
   "title": "Inception",
   "tmdbId": 27205,
   "qualityProfileId": 1,
-  "rootFolderPath": "/mnt/storage/Movies",
+  "rootFolderPath": "/movies",
   "monitored": true,
   "addOptions": {"searchForMovie": true}
 }'
@@ -221,7 +227,20 @@ api-call plex GET /library/sections/1/all
 
 ## Common Workflows
 
-### User Requests Media via Sonarr/Radarr
+### User Requests Movie via Radarr
+
+**Example:** "Download Star Wars A New Hope"
+
+**Your process (DO THESE IN ORDER):**
+1. Search Radarr for the movie: `api-call radarr GET /movie/lookup -q "term=Star Wars"`
+2. Get root folder path: `api-call radarr GET /rootfolder` (use the "path" from the first result)
+3. Get quality profile: `api-call radarr GET /qualityprofile` (use id from first profile)
+4. Add movie with correct paths: `api-call radarr POST /movie -d '{...}'`
+5. Report back: "Added Star Wars to Radarr. It's searching for downloads now."
+
+**IMPORTANT:** Always check root folders BEFORE trying to add a movie!
+
+### User Requests TV Show via Sonarr
 
 **Example:** "Get me Breaking Bad season 5"
 
