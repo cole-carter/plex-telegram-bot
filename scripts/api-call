@@ -22,13 +22,15 @@ from urllib.parse import urlencode
 # Service configurations
 SERVICES = {
     "sonarr": {
-        "base_url": os.getenv("SONARR_URL", "http://192.168.1.14:8989/api/v3"),
+        "base_url": os.getenv("SONARR_URL", "http://192.168.1.14:8989"),
+        "api_path": "/api/v3",
         "auth_type": "header",
         "auth_header": "X-Api-Key",
         "auth_value": os.getenv("SONARR_API_KEY"),
     },
     "radarr": {
-        "base_url": os.getenv("RADARR_URL", "http://192.168.1.14:7878/api/v3"),
+        "base_url": os.getenv("RADARR_URL", "http://192.168.1.14:7878"),
+        "api_path": "/api/v3",
         "auth_type": "header",
         "auth_header": "X-Api-Key",
         "auth_value": os.getenv("RADARR_API_KEY"),
@@ -74,7 +76,11 @@ def make_request(service, method, endpoint, query=None, data=None):
         sys.exit(1)
 
     config = SERVICES[service]
-    url = f"{config['base_url']}{endpoint}"
+
+    # Construct URL with API path if specified
+    base = config['base_url']
+    api_path = config.get('api_path', '')
+    url = f"{base}{api_path}{endpoint}"
 
     # Build headers
     headers = {"Content-Type": "application/json"}
