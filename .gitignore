@@ -4,6 +4,9 @@
 *.pem
 secrets.*
 
+# Development instructions (local only)
+CLAUDE.md
+
 # Python
 __pycache__/
 *.py[cod]

@@ -3,7 +3,7 @@
 import anthropic
 import logging
 from typing import List, Dict, Any, Callable
-from bot.config import ANTHROPIC_API_KEY, DEFAULT_MODEL, CLAUDE_MD_PATH
+from bot.config import ANTHROPIC_API_KEY, DEFAULT_MODEL, AGENT_MD_PATH, SOUL_MD_PATH
 from bot.tools.command_executor import execute_command
 from bot.tools.docs_manager import read_docs, update_docs
 
@@ -89,11 +89,19 @@ class PlexAgent:
         self.client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         self.model = DEFAULT_MODEL
 
-        # Load CLAUDE.md system instructions
-        if CLAUDE_MD_PATH.exists():
-            self.system_instructions = CLAUDE_MD_PATH.read_text()
+        # Load AGENT.md system instructions
+        if AGENT_MD_PATH.exists():
+            system_instructions = AGENT_MD_PATH.read_text()
         else:
-            raise FileNotFoundError(f"CLAUDE.md not found at {CLAUDE_MD_PATH}")
+            raise FileNotFoundError(f"AGENT.md not found at {AGENT_MD_PATH}")
+
+        # Optionally append SOUL.md for personality
+        if SOUL_MD_PATH.exists():
+            soul_content = SOUL_MD_PATH.read_text().strip()
+            if soul_content and len(soul_content) > 50:  # Only if non-empty
+                system_instructions += "\n\n" + soul_content
+
+        self.system_instructions = system_instructions
 
     def _execute_tool(self, tool_name: str, tool_input: Dict[str, Any]) -> Dict[str, Any]:
         """
