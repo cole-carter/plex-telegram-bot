@@ -37,10 +37,14 @@ This is an AI-powered Telegram bot that manages a home Plex media server. It use
 ```bash
 # SSH to server (if not already connected)
 ssh mermanarchy@192.168.1.14
+```
 
+```bash
 # Pull updates and restart bot
 cd ~/plex-telegram-bot && git pull && sudo systemctl restart plex-bot
+```
 
+```bash
 # Verify it's running
 sudo systemctl status plex-bot
 ```
