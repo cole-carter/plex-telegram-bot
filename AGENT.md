@@ -180,6 +180,23 @@ api-call radarr POST /command -d '{
 
 **Base:** `http://192.168.1.14:8080/api/v2`
 
+**IMPORTANT: Understanding Download Progress**
+
+The `/torrents/info` endpoint returns torrents with these **critical fields**:
+
+- `"progress": 0.72` = **72% complete** (scale is 0.0 to 1.0, NOT 0-100!)
+- `"progress": 1.0` = **100% complete**
+- `"state": "downloading"` = actively downloading
+- `"state": "stalledDL"` = stalled (no seeds)
+- `"state": "pausedDL"` = paused
+- `"state": "stoppedUP"` = complete and stopped
+- `"state": "metaDL"` = downloading metadata
+- `"amount_left": 1234567` = bytes remaining to download
+- `"size"`: size of downloaded files
+- `"total_size"`: full torrent size
+
+**To check if complete:** `progress == 1.0` (NOT `progress == 1` or `progress == 100`)
+
 **Common operations:**
 
 ```bash
@@ -200,6 +217,14 @@ api-call qbt POST /torrents/delete -d '{
   "hashes": "abc123",
   "deleteFiles": false
 }'
+```
+
+**Example: Checking download status**
+```bash
+api-call qbt GET /torrents/info
+# Returns JSON with "progress" field (0.0 to 1.0)
+# If progress is 0.72, report "72% complete"
+# If progress is 1.0, report "Complete"
 ```
 
 ### Plex (Library Management)
