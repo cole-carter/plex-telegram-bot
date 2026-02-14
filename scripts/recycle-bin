@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+"""
+Safe file deletion - moves files to recycle bin instead of permanently deleting.
+
+Usage:
+    recycle-bin <path> [<path2> ...]
+
+Examples:
+    recycle-bin /path/to/file.txt
+    recycle-bin /path/to/dir
+    recycle-bin file1.txt file2.txt file3.txt
+
+Files are moved to: /home/mermanarchy/recycle-bin/
+with timestamp to avoid collisions.
+"""
+
+import sys
+import os
+import shutil
+from datetime import datetime
+from pathlib import Path
+
+RECYCLE_BIN = Path("/home/mermanarchy/recycle-bin")
+
+
+def print_usage():
+    print(__doc__)
+    sys.exit(1)
+
+
+def recycle_item(path_str):
+    """Move a file or directory to the recycle bin."""
+
+    path = Path(path_str).resolve()
+
+    # Check if path exists
+    if not path.exists():
+        print(f"Error: Path does not exist: {path}")
+        return False
+
+    # Create recycle bin if it doesn't exist
+    RECYCLE_BIN.mkdir(parents=True, exist_ok=True)
+
+    # Generate timestamped name to avoid collisions
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    new_name = f"{path.name}.{timestamp}"
+    destination = RECYCLE_BIN / new_name
+
+    # Handle collision (unlikely but possible)
+    counter = 1
+    while destination.exists():
+        new_name = f"{path.name}.{timestamp}.{counter}"
+        destination = RECYCLE_BIN / new_name
+        counter += 1
+
+    try:
+        # Move to recycle bin
+        shutil.move(str(path), str(destination))
+        print(f"Moved to recycle bin: {path.name} → {destination}")
+        return True
+
+    except Exception as e:
+        print(f"Error: Failed to move {path}: {e}")
+        return False
+
+
+def main():
+    args = sys.argv[1:]
+
+    if len(args) == 0:
+        print_usage()
+
+    # Process each path
+    success_count = 0
+    for path_str in args:
+        if recycle_item(path_str):
+            success_count += 1
+
+    # Exit with error if any failed
+    if success_count < len(args):
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

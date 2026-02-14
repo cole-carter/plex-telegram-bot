@@ -1,0 +1,179 @@
+#!/usr/bin/env python3
+"""
+Generic API caller for Plex bot services.
+Handles authentication automatically for Sonarr, Radarr, qBittorrent, and Plex.
+
+Usage:
+    api-call <service> <method> <endpoint> [options]
+
+Examples:
+    api-call sonarr GET /series/lookup -q "term=Breaking Bad"
+    api-call radarr POST /movie -d '{"tmdbId": 12345}'
+    api-call qbt GET /torrents/info
+    api-call plex GET /library/sections
+"""
+
+import sys
+import os
+import json
+import requests
+from urllib.parse import urlencode
+
+# Service configurations
+SERVICES = {
+    "sonarr": {
+        "base_url": os.getenv("SONARR_URL", "http://192.168.1.14:8989/api/v3"),
+        "auth_type": "header",
+        "auth_header": "X-Api-Key",
+        "auth_value": os.getenv("SONARR_API_KEY"),
+    },
+    "radarr": {
+        "base_url": os.getenv("RADARR_URL", "http://192.168.1.14:7878/api/v3"),
+        "auth_type": "header",
+        "auth_header": "X-Api-Key",
+        "auth_value": os.getenv("RADARR_API_KEY"),
+    },
+    "plex": {
+        "base_url": os.getenv("PLEX_URL", "http://192.168.1.14:32400"),
+        "auth_type": "header",
+        "auth_header": "X-Plex-Token",
+        "auth_value": os.getenv("PLEX_TOKEN"),
+    },
+    "qbt": {
+        "base_url": os.getenv("QBITTORRENT_URL", "http://192.168.1.14:8080/api/v2"),
+        "auth_type": "cookie",
+        "username": os.getenv("QBITTORRENT_USER", "admin"),
+        "password": os.getenv("QBITTORRENT_PASS"),
+    },
+}
+
+
+def print_usage():
+    print(__doc__)
+    sys.exit(1)
+
+
+def parse_query_string(query_str):
+    """Parse query string like 'key1=value1&key2=value2' into dict."""
+    if not query_str:
+        return {}
+    params = {}
+    for item in query_str.split("&"):
+        if "=" in item:
+            key, value = item.split("=", 1)
+            params[key] = value
+    return params
+
+
+def make_request(service, method, endpoint, query=None, data=None):
+    """Make authenticated request to a service."""
+
+    if service not in SERVICES:
+        print(f"Error: Unknown service '{service}'")
+        print(f"Available services: {', '.join(SERVICES.keys())}")
+        sys.exit(1)
+
+    config = SERVICES[service]
+    url = f"{config['base_url']}{endpoint}"
+
+    # Build headers
+    headers = {"Content-Type": "application/json"}
+
+    # Handle authentication
+    session = requests.Session()
+
+    if config["auth_type"] == "header":
+        if not config["auth_value"]:
+            print(f"Error: {service} API key not found in environment")
+            sys.exit(1)
+        headers[config["auth_header"]] = config["auth_value"]
+
+    elif config["auth_type"] == "cookie":
+        # qBittorrent requires login first
+        if not config["password"]:
+            print(f"Error: qBittorrent password not found in environment")
+            sys.exit(1)
+
+        login_url = f"{config['base_url']}/auth/login"
+        login_data = {
+            "username": config["username"],
+            "password": config["password"],
+        }
+        login_response = session.post(login_url, data=login_data)
+
+        if login_response.text != "Ok.":
+            print(f"Error: qBittorrent login failed: {login_response.text}")
+            sys.exit(1)
+
+    # Parse query parameters
+    params = parse_query_string(query) if query else None
+
+    # Parse JSON data
+    json_data = None
+    if data:
+        try:
+            json_data = json.loads(data)
+        except json.JSONDecodeError as e:
+            print(f"Error: Invalid JSON data: {e}")
+            sys.exit(1)
+
+    # Make the request
+    try:
+        response = session.request(
+            method=method.upper(),
+            url=url,
+            headers=headers,
+            params=params,
+            json=json_data,
+            timeout=30,
+        )
+
+        # Try to parse as JSON
+        try:
+            result = response.json()
+            print(json.dumps(result, indent=2))
+        except json.JSONDecodeError:
+            # Not JSON, print raw text
+            print(response.text)
+
+        # Exit with error code if request failed
+        if not response.ok:
+            sys.exit(1)
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error: Request failed: {e}")
+        sys.exit(1)
+
+
+def main():
+    # Parse command line arguments
+    args = sys.argv[1:]
+
+    if len(args) < 3:
+        print_usage()
+
+    service = args[0]
+    method = args[1]
+    endpoint = args[2]
+
+    # Parse optional flags
+    query = None
+    data = None
+
+    i = 3
+    while i < len(args):
+        if args[i] in ["-q", "--query"] and i + 1 < len(args):
+            query = args[i + 1]
+            i += 2
+        elif args[i] in ["-d", "--data"] and i + 1 < len(args):
+            data = args[i + 1]
+            i += 2
+        else:
+            print(f"Error: Unknown argument '{args[i]}'")
+            print_usage()
+
+    make_request(service, method, endpoint, query, data)
+
+
+if __name__ == "__main__":
+    main()

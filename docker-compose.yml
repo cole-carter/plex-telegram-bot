@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  plex-bot:
+    build: .
+    container_name: plex-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # Media directories (read/write)
+      - /mnt/storage:/mnt/storage
+      - /home/mermanarchy/downloads:/downloads
+      - /home/mermanarchy/recycle-bin:/recycle-bin
+
+      # Agent documentation (persistent across restarts)
+      - ./docs:/app/docs
+
+    # Use host network to access services on localhost
+    network_mode: host
+
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

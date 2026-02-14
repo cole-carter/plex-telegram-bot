@@ -1,0 +1,25 @@
+[Unit]
+Description=Plex Telegram Bot
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/mermanarchy/plex-telegram-bot
+ExecStart=/usr/bin/python3 -m bot.main
+Restart=always
+RestartSec=10
+User=mermanarchy
+EnvironmentFile=/home/mermanarchy/plex-telegram-bot/.env
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=plex-bot
+
+[Install]
+WantedBy=multi-user.target
