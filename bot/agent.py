@@ -155,7 +155,7 @@ class PlexAgent:
             return f"Updating {tool_input.get('file', 'documentation')}"
         return f"Using {tool_name}"
 
-    def process_message(self, user_message: str, conversation_history=None, max_turns: int = 7, interrupt_flag=None, progress_callback=None) -> str:
+    def process_message(self, user_message: str, conversation_history=None, max_turns: int = 12, interrupt_flag=None, progress_callback=None) -> str:
         """
         Process a user message and return the agent's response.
 
@@ -259,7 +259,7 @@ class PlexAgent:
                 return f"Unexpected stop reason: {response.stop_reason}"
 
         logger.warning(f"Max turns ({max_turns}) reached without completion")
-        return "Max turns reached. Task may be too complex."
+        return f"Reached maximum of {max_turns} steps. Task incomplete - consider breaking into smaller subtasks."
 
 
 def create_agent() -> PlexAgent:
