@@ -44,7 +44,15 @@ processing_interrupted = False
 
 # Conversation history per user (limited to last N messages)
 conversation_history = {}
-MAX_HISTORY_MESSAGES = 10  # Keep last 10 exchanges
+MAX_HISTORY_MESSAGES = 4  # Keep last 4 exchanges (8 messages total)
+MAX_MESSAGE_LENGTH = 4000  # Truncate messages longer than this
+
+
+def truncate_message(content: str, max_length: int = MAX_MESSAGE_LENGTH) -> str:
+    """Truncate long messages to prevent context overflow."""
+    if len(content) <= max_length:
+        return content
+    return content[:max_length] + f"\n\n[... truncated {len(content) - max_length} characters]"
 
 
 def is_authorized(update: Update) -> bool:
@@ -146,6 +154,21 @@ async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("⏹️ Stopping current task...")
 
 
+async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /clear command - clear conversation history."""
+    if not is_authorized(update):
+        await update.message.reply_text("Unauthorized user.")
+        return
+
+    user_id = update.effective_user.id
+    if user_id in conversation_history:
+        conversation_history[user_id] = []
+        logger.info(f"Cleared conversation history for user {user_id}")
+        await update.message.reply_text("🗑️ Conversation history cleared.")
+    else:
+        await update.message.reply_text("No conversation history to clear.")
+
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle incoming messages."""
     global processing_interrupted, conversation_history
@@ -195,9 +218,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Send response
         await update.message.reply_text(response)
 
-        # Update conversation history
-        history.append({"role": "user", "content": user_message})
-        history.append({"role": "assistant", "content": response})
+        # Update conversation history (truncate long messages to prevent context overflow)
+        history.append({"role": "user", "content": truncate_message(user_message)})
+        history.append({"role": "assistant", "content": truncate_message(response)})
 
         # Trim history if too long (keep last N exchanges = 2N messages)
         if len(history) > MAX_HISTORY_MESSAGES * 2:
@@ -243,6 +266,7 @@ def main():
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("status", status_command))
     application.add_handler(CommandHandler("stop", stop_command))
+    application.add_handler(CommandHandler("clear", clear_command))
     application.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
     )
