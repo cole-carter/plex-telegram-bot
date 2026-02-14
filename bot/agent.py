@@ -36,14 +36,14 @@ TOOLS = [
         "description": (
             "Read your documentation files to recall learnings and patterns. "
             "Available files: MEMORY.md (system info), LEARNINGS.md (experience), "
-            "API_REFERENCE.md (extended API docs)."
+            "API_REFERENCE.md (extended API docs), TASKS.md (active task state)."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "file": {
                     "type": "string",
-                    "enum": ["MEMORY.md", "LEARNINGS.md", "API_REFERENCE.md"],
+                    "enum": ["MEMORY.md", "LEARNINGS.md", "API_REFERENCE.md", "TASKS.md"],
                     "description": "Which documentation file to read",
                 }
             },
@@ -54,14 +54,15 @@ TOOLS = [
         "name": "update_docs",
         "description": (
             "Update your documentation files to remember things for future conversations. "
-            "Use this to record learnings, API patterns, or system-specific information."
+            "Use this to record learnings, API patterns, or system-specific information. "
+            "Use TASKS.md to track active task progress (updated frequently during execution)."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "file": {
                     "type": "string",
-                    "enum": ["MEMORY.md", "LEARNINGS.md", "API_REFERENCE.md"],
+                    "enum": ["MEMORY.md", "LEARNINGS.md", "API_REFERENCE.md", "TASKS.md"],
                     "description": "Which documentation file to update",
                 },
                 "content": {

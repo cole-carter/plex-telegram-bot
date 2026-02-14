@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Dict, Any, List
 
 # Files the agent can read and write
-AGENT_WRITABLE_DOCS = ["MEMORY.md", "LEARNINGS.md", "API_REFERENCE.md"]
+AGENT_WRITABLE_DOCS = ["MEMORY.md", "LEARNINGS.md", "API_REFERENCE.md", "TASKS.md"]
 
 
 def read_docs(file: str) -> Dict[str, Any]:

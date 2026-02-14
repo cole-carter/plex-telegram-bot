@@ -45,8 +45,8 @@ processing_interrupted = False
 
 # Conversation history per user (limited to last N messages)
 conversation_history = {}
-MAX_HISTORY_MESSAGES = 4  # Keep last 4 exchanges (8 messages total)
-MAX_MESSAGE_LENGTH = 4000  # Truncate messages longer than this
+MAX_HISTORY_MESSAGES = 10  # Keep last 10 exchanges (20 messages total)
+MAX_MESSAGE_LENGTH = 8000  # Truncate messages longer than this
 
 
 def truncate_message(content: str, max_length: int = MAX_MESSAGE_LENGTH) -> str:

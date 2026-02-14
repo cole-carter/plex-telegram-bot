@@ -49,6 +49,12 @@ Thumbs.db
 
 # Logs
 *.log
+logs/
+
+# Runtime docs (bot modifies these)
+docs/MEMORY.md
+docs/LEARNINGS.md
+docs/TASKS.md
 
 # Testing
 .pytest_cache/
