@@ -1,10 +1,13 @@
 """Claude AI agent integration with tool support."""
 
 import anthropic
-from typing import List, Dict, Any
+import logging
+from typing import List, Dict, Any, Callable
 from bot.config import ANTHROPIC_API_KEY, DEFAULT_MODEL, CLAUDE_MD_PATH
 from bot.tools.command_executor import execute_command
 from bot.tools.docs_manager import read_docs, update_docs
+
+logger = logging.getLogger(__name__)
 
 
 # Tool definitions for Claude
@@ -103,35 +106,57 @@ class PlexAgent:
         Returns:
             Tool execution result
         """
+        # Log tool execution
         if tool_name == "execute_command":
-            return execute_command(tool_input["command"])
-
+            logger.info(f"Tool: execute_command({tool_input['command']})")
+            result = execute_command(tool_input["command"])
         elif tool_name == "read_docs":
-            return read_docs(tool_input["file"])
-
+            logger.info(f"Tool: read_docs({tool_input['file']})")
+            result = read_docs(tool_input["file"])
         elif tool_name == "update_docs":
             mode = tool_input.get("mode", "append")
-            return update_docs(tool_input["file"], tool_input["content"], mode)
-
+            logger.info(f"Tool: update_docs({tool_input['file']}, mode={mode})")
+            result = update_docs(tool_input["file"], tool_input["content"], mode)
         else:
-            return {"success": False, "error": f"Unknown tool: {tool_name}"}
+            logger.warning(f"Tool: Unknown tool '{tool_name}'")
+            result = {"success": False, "error": f"Unknown tool: {tool_name}"}
 
-    def process_message(self, user_message: str, max_turns: int = 10) -> str:
+        # Log result
+        if result.get("success"):
+            output = result.get("output") or result.get("content") or result.get("message", "")
+            logger.info(f"Tool result: Success - {output[:100]}...")
+        else:
+            logger.error(f"Tool result: Error - {result.get('error', 'Unknown error')}")
+
+        return result
+
+    def process_message(self, user_message: str, conversation_history=None, max_turns: int = 5, interrupt_flag=None) -> str:
         """
         Process a user message and return the agent's response.
 
         Args:
             user_message: The message from the user
+            conversation_history: List of previous messages in this conversation
             max_turns: Maximum number of agent turns (API calls) to prevent infinite loops
+            interrupt_flag: Callable that returns True if processing should be interrupted
 
         Returns:
             The agent's final response
         """
-        messages = [{"role": "user", "content": user_message}]
+        # Start with conversation history, then add current message
+        messages = list(conversation_history) if conversation_history else []
+        messages.append({"role": "user", "content": user_message})
+
         turn_count = 0
 
         while turn_count < max_turns:
+            # Check for interrupt
+            if interrupt_flag and interrupt_flag():
+                logger.info("Agent interrupted by user")
+                return "⏹️ Task interrupted by user."
+
             turn_count += 1
+            logger.info(f"Agent turn {turn_count}/{max_turns}")
 
             # Call Claude API
             response = self.client.messages.create(
@@ -142,6 +167,10 @@ class PlexAgent:
                 messages=messages,
             )
 
+            # Check for interrupt after API call
+            if interrupt_flag and interrupt_flag():
+                return "⏹️ Task interrupted by user."
+
             # Check stop reason
             if response.stop_reason == "end_turn":
                 # Agent is done, extract final response
@@ -149,6 +178,7 @@ class PlexAgent:
                 for block in response.content:
                     if block.type == "text":
                         final_text += block.text
+                logger.info(f"Agent finished: {final_text[:100]}...")
                 return final_text or "Done."
 
             elif response.stop_reason == "tool_use":
@@ -160,6 +190,10 @@ class PlexAgent:
                 tool_results = []
                 for block in response.content:
                     if block.type == "tool_use":
+                        # Check for interrupt before tool execution
+                        if interrupt_flag and interrupt_flag():
+                            return "⏹️ Task interrupted by user."
+
                         tool_name = block.name
                         tool_input = block.input
 
@@ -187,6 +221,7 @@ class PlexAgent:
                 # Unexpected stop reason
                 return f"Unexpected stop reason: {response.stop_reason}"
 
+        logger.warning(f"Max turns ({max_turns}) reached without completion")
         return "Max turns reached. Task may be too complex."
 
 

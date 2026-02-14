@@ -1,6 +1,8 @@
 """Plex Telegram Bot - Main entry point."""
 
 import logging
+from pathlib import Path
+from datetime import datetime
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -10,19 +12,39 @@ from telegram.ext import (
     ContextTypes,
 )
 
-from bot.config import TELEGRAM_BOT_TOKEN, ALLOWED_USER_IDS, validate_config
+from bot.config import TELEGRAM_BOT_TOKEN, ALLOWED_USER_IDS, validate_config, PROJECT_ROOT
 from bot.agent import create_agent
 
-# Configure logging
+# Configure logging to both file and console
+LOG_DIR = PROJECT_ROOT / "logs"
+LOG_DIR.mkdir(exist_ok=True)
+
+log_file = LOG_DIR / f"bot_{datetime.now().strftime('%Y%m%d')}.log"
+
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler(log_file),
+        logging.StreamHandler()
+    ]
 )
 logger = logging.getLogger(__name__)
 
+# Separate conversation logger
+conversation_logger = logging.getLogger("conversation")
+conversation_handler = logging.FileHandler(LOG_DIR / f"conversations_{datetime.now().strftime('%Y%m%d')}.log")
+conversation_handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))
+conversation_logger.addHandler(conversation_handler)
+conversation_logger.setLevel(logging.INFO)
 
-# Global agent instance
+# Global agent instance and processing state
 agent = None
+processing_interrupted = False
+
+# Conversation history per user (limited to last N messages)
+conversation_history = {}
+MAX_HISTORY_MESSAGES = 10  # Keep last 10 exchanges
 
 
 def is_authorized(update: Update) -> bool:
@@ -69,6 +91,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /start - Welcome message
 /help - This help message
 /status - Check bot status
+/stop - Interrupt current task
 
 **How to use:**
 Just send me messages naturally! I understand requests like:
@@ -110,8 +133,23 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🟢 Bot is online and ready!")
 
 
+async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /stop command - interrupt current processing."""
+    global processing_interrupted
+
+    if not is_authorized(update):
+        await update.message.reply_text("Unauthorized user.")
+        return
+
+    processing_interrupted = True
+    logger.info("Stop command received - interrupting agent processing")
+    await update.message.reply_text("⏹️ Stopping current task...")
+
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle incoming messages."""
+    global processing_interrupted, conversation_history
+
     # Check authorization
     if not is_authorized(update):
         logger.warning(
@@ -121,23 +159,57 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Unauthorized user.")
         return
 
+    user_id = update.effective_user.id
     user_message = update.message.text
-    logger.info(f"User {update.effective_user.username}: {user_message}")
+    username = update.effective_user.username or update.effective_user.first_name
+
+    logger.info(f"User {username}: {user_message}")
+    conversation_logger.info(f"USER [{username}]: {user_message}")
+
+    # Initialize conversation history for this user if needed
+    if user_id not in conversation_history:
+        conversation_history[user_id] = []
+
+    # Reset interrupt flag
+    processing_interrupted = False
 
     # Send "typing" indicator
     await update.message.chat.send_action(action="typing")
 
     try:
-        # Process message with agent
-        response = agent.process_message(user_message)
+        # Get recent conversation history
+        history = conversation_history[user_id]
+
+        # Process message with agent (with history)
+        response = agent.process_message(
+            user_message,
+            conversation_history=history,
+            interrupt_flag=lambda: processing_interrupted
+        )
+
+        # Check if interrupted
+        if processing_interrupted:
+            response = "⏹️ Task interrupted."
+            processing_interrupted = False
 
         # Send response
         await update.message.reply_text(response)
 
+        # Update conversation history
+        history.append({"role": "user", "content": user_message})
+        history.append({"role": "assistant", "content": response})
+
+        # Trim history if too long (keep last N exchanges = 2N messages)
+        if len(history) > MAX_HISTORY_MESSAGES * 2:
+            history = history[-(MAX_HISTORY_MESSAGES * 2):]
+            conversation_history[user_id] = history
+
         logger.info(f"Bot response: {response[:100]}...")
+        conversation_logger.info(f"BOT: {response}")
 
     except Exception as e:
         logger.error(f"Error processing message: {e}", exc_info=True)
+        conversation_logger.error(f"ERROR: {str(e)}")
         await update.message.reply_text(
             f"Sorry, I encountered an error: {str(e)}\n\n"
             "Please try again or contact the administrator."
@@ -170,6 +242,7 @@ def main():
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("status", status_command))
+    application.add_handler(CommandHandler("stop", stop_command))
     application.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
     )
