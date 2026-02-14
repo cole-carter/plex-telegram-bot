@@ -2,8 +2,11 @@
 
 import subprocess
 import shlex
+import logging
 from pathlib import Path
 from typing import Dict, Any
+
+logger = logging.getLogger(__name__)
 
 # Allowed commands (whitelist)
 ALLOWED_COMMANDS = [
@@ -129,12 +132,19 @@ def execute_command(command: str, timeout: int = 30) -> Dict[str, Any]:
             env=env,
         )
 
-        # Return result
-        return {
-            "success": result.returncode == 0,
-            "output": result.stdout,
-            "error": result.stderr if result.returncode != 0 else "",
-        }
+        # If command failed, return error directly (no executor processing needed)
+        if result.returncode != 0:
+            return {
+                "success": False,
+                "output": "",
+                "error": result.stderr,
+            }
+
+        # Command succeeded - route through executor for intelligent processing
+        from bot.tools.executor import execute_with_executor
+
+        logger.info(f"Command succeeded, processing output with executor ({len(result.stdout)} chars)")
+        return execute_with_executor(command, result.stdout)
 
     except subprocess.TimeoutExpired:
         return {

@@ -24,7 +24,14 @@ ALLOWED_USER_IDS = [
 
 # Anthropic API configuration
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "claude-3-haiku-20240307")
+
+# AI Models (role-based configuration)
+ORCHESTRATOR_MODEL = os.getenv("ORCHESTRATOR_MODEL", "claude-sonnet-4-5-20250929")
+EXECUTOR_MODEL = os.getenv("EXECUTOR_MODEL", "claude-haiku-4-5-20251001")
+
+# Token limits for executor
+MAX_EXECUTOR_INPUT_TOKENS = int(os.getenv("MAX_EXECUTOR_INPUT_TOKENS", "50000"))
+MAX_EXECUTOR_OUTPUT_TOKENS = int(os.getenv("MAX_EXECUTOR_OUTPUT_TOKENS", "4000"))
 
 # Service URLs (for reference, actual API calls use api-call script)
 SONARR_URL = os.getenv("SONARR_URL", "http://192.168.1.14:8989")

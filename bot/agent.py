@@ -3,22 +3,11 @@
 import anthropic
 import logging
 from typing import List, Dict, Any, Callable
-from bot.config import ANTHROPIC_API_KEY, DEFAULT_MODEL, AGENT_MD_PATH, SOUL_MD_PATH
+from bot.config import ANTHROPIC_API_KEY, ORCHESTRATOR_MODEL, AGENT_MD_PATH, SOUL_MD_PATH
 from bot.tools.command_executor import execute_command
 from bot.tools.docs_manager import read_docs, update_docs
 
 logger = logging.getLogger(__name__)
-
-# Maximum length for tool outputs to prevent context overflow
-MAX_TOOL_OUTPUT_LENGTH = 8000  # Truncate tool outputs longer than this
-
-
-def truncate_tool_output(content: str, max_length: int = MAX_TOOL_OUTPUT_LENGTH) -> str:
-    """Truncate long tool outputs to prevent context overflow."""
-    if len(content) <= max_length:
-        return content
-    return content[:max_length] + f"\n\n[... truncated {len(content) - max_length} characters]"
-
 
 # Tool definitions for Claude
 TOOLS = [
@@ -97,7 +86,7 @@ class PlexAgent:
     def __init__(self):
         """Initialize the agent with Claude API client."""
         self.client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-        self.model = DEFAULT_MODEL
+        self.model = ORCHESTRATOR_MODEL
 
         # Load AGENT.md system instructions
         if AGENT_MD_PATH.exists():
@@ -253,14 +242,12 @@ class PlexAgent:
                         else:
                             content = f"Error: {result.get('error', 'Unknown error')}"
 
-                        # Truncate large outputs to prevent context overflow
-                        truncated_content = truncate_tool_output(content)
-
+                        # Executor already processed output, no truncation needed
                         tool_results.append(
                             {
                                 "type": "tool_result",
                                 "tool_use_id": block.id,
-                                "content": truncated_content,
+                                "content": content,
                             }
                         )
 
