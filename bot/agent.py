@@ -9,6 +9,16 @@ from bot.tools.docs_manager import read_docs, update_docs
 
 logger = logging.getLogger(__name__)
 
+# Maximum length for tool outputs to prevent context overflow
+MAX_TOOL_OUTPUT_LENGTH = 8000  # Truncate tool outputs longer than this
+
+
+def truncate_tool_output(content: str, max_length: int = MAX_TOOL_OUTPUT_LENGTH) -> str:
+    """Truncate long tool outputs to prevent context overflow."""
+    if len(content) <= max_length:
+        return content
+    return content[:max_length] + f"\n\n[... truncated {len(content) - max_length} characters]"
+
 
 # Tool definitions for Claude
 TOOLS = [
@@ -214,11 +224,14 @@ class PlexAgent:
                         else:
                             content = f"Error: {result.get('error', 'Unknown error')}"
 
+                        # Truncate large outputs to prevent context overflow
+                        truncated_content = truncate_tool_output(content)
+
                         tool_results.append(
                             {
                                 "type": "tool_result",
                                 "tool_use_id": block.id,
-                                "content": content,
+                                "content": truncated_content,
                             }
                         )
 
