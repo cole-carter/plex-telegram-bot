@@ -37,7 +37,7 @@ BLOCKED_PATTERNS = [
     "*.pem",  # No certificate files
     "secrets",  # No secrets files
     "rm ",  # No rm command
-    "dd ",  # No disk operations
+    " dd ",  # No disk operations (with spaces to avoid blocking -d flags)
     "mkfs",  # No filesystem formatting
     "chmod 777",  # No insecure permissions
     "curl ",  # No external network calls
