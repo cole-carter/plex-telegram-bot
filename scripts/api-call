@@ -42,7 +42,8 @@ SERVICES = {
         "auth_value": os.getenv("PLEX_TOKEN"),
     },
     "qbt": {
-        "base_url": os.getenv("QBITTORRENT_URL", "http://192.168.1.14:8080/api/v2"),
+        "base_url": os.getenv("QBITTORRENT_URL", "http://192.168.1.14:8080"),
+        "api_path": "/api/v2",
         "auth_type": "cookie",
         "username": os.getenv("QBITTORRENT_USER", "admin"),
         "password": os.getenv("QBITTORRENT_PASS"),
@@ -100,7 +101,8 @@ def make_request(service, method, endpoint, query=None, data=None):
             print(f"Error: qBittorrent password not found in environment")
             sys.exit(1)
 
-        login_url = f"{config['base_url']}/auth/login"
+        api_path = config.get('api_path', '')
+        login_url = f"{config['base_url']}{api_path}/auth/login"
         login_data = {
             "username": config["username"],
             "password": config["password"],
