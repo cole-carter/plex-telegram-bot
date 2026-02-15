@@ -12,6 +12,7 @@ from telegram.ext import (
     filters,
     ContextTypes,
 )
+from telegram.request import HTTPXRequest
 
 from bot.config import TELEGRAM_BOT_TOKEN, ALLOWED_USER_IDS, validate_config, PROJECT_ROOT
 from bot.agent import create_agent
@@ -194,10 +195,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Reset interrupt flag
     processing_interrupted = False
 
-    # Send initial progress message
-    progress_message = await update.message.reply_text("⏳ Working on your request...")
-
     try:
+        # Send initial progress message
+        progress_message = await update.message.reply_text("⏳ Working on your request...")
+
         # Get recent conversation history
         history = conversation_history[user_id]
 
@@ -309,9 +310,20 @@ def main():
     agent = create_agent()
     logger.info(f"Agent initialized with model: {agent.model}")
 
-    # Create Telegram application
+    # Create Telegram application with generous timeouts for home server
     logger.info("Starting Telegram bot...")
-    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    request = HTTPXRequest(
+        connect_timeout=20.0,
+        read_timeout=20.0,
+        write_timeout=20.0,
+        pool_timeout=10.0,
+    )
+    application = (
+        Application.builder()
+        .token(TELEGRAM_BOT_TOKEN)
+        .request(request)
+        .build()
+    )
 
     # Register handlers
     application.add_handler(CommandHandler("start", start_command))
