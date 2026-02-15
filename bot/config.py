@@ -1,4 +1,4 @@
-"""Configuration management for Plex Telegram Bot."""
+"""Configuration management for Blackbeard."""
 
 import os
 from pathlib import Path

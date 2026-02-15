@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  plex-bot:
+  blackbeard:
     build: .
-    container_name: plex-bot
+    container_name: blackbeard
     restart: unless-stopped
     env_file:
       - .env

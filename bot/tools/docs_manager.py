@@ -3,8 +3,11 @@
 from pathlib import Path
 from typing import Dict, Any, List
 
-# Files the agent can read and write
-AGENT_WRITABLE_DOCS = ["MEMORY.md", "LEARNINGS.md", "API_REFERENCE.md", "TASKS.md"]
+# Files the agent can read
+AGENT_READABLE_DOCS = ["MEMORY.md", "REFERENCE.md", "TASKS.md"]
+
+# Files the agent can write (REFERENCE.md is read-only, developer-maintained)
+AGENT_WRITABLE_DOCS = ["MEMORY.md", "TASKS.md"]
 
 
 def read_docs(file: str) -> Dict[str, Any]:
@@ -12,16 +15,16 @@ def read_docs(file: str) -> Dict[str, Any]:
     Read an agent documentation file.
 
     Args:
-        file: Name of the docs file (MEMORY.md, LEARNINGS.md, or API_REFERENCE.md)
+        file: Name of the docs file (MEMORY.md, REFERENCE.md, or TASKS.md)
 
     Returns:
         dict with keys: success, content, error
     """
-    if file not in AGENT_WRITABLE_DOCS:
+    if file not in AGENT_READABLE_DOCS:
         return {
             "success": False,
             "content": "",
-            "error": f"Cannot read '{file}'. Allowed files: {', '.join(AGENT_WRITABLE_DOCS)}",
+            "error": f"Cannot read '{file}'. Available files: {', '.join(AGENT_READABLE_DOCS)}",
         }
 
     try:
@@ -59,7 +62,7 @@ def update_docs(file: str, content: str, mode: str = "append") -> Dict[str, Any]
         return {
             "success": False,
             "message": "",
-            "error": f"Cannot write to '{file}'. Allowed files: {', '.join(AGENT_WRITABLE_DOCS)}",
+            "error": f"Cannot write to '{file}'. Writable files: {', '.join(AGENT_WRITABLE_DOCS)}",
         }
 
     if mode not in ["append", "replace"]:
@@ -99,5 +102,5 @@ def update_docs(file: str, content: str, mode: str = "append") -> Dict[str, Any]
 
 
 def list_available_docs() -> List[str]:
-    """Return list of docs files the agent can access."""
-    return AGENT_WRITABLE_DOCS
+    """Return list of docs files the agent can read."""
+    return AGENT_READABLE_DOCS

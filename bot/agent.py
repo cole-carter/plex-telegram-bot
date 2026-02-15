@@ -18,7 +18,8 @@ TOOLS = [
             "You have access to: api-call (for service APIs), recycle-bin (safe deletion), "
             "and standard Unix commands (ls, find, mv, cp, mkdir, cat, grep, head, tail, file, du, df, stat). "
             "NEVER use rm - use recycle-bin instead. "
-            "NEVER access .env or secret files."
+            "NEVER access .env or secret files. "
+            "IMPORTANT: After any POST/PUT/DELETE, make a follow-up GET to verify the change took effect."
         ),
         "input_schema": {
             "type": "object",
@@ -34,16 +35,17 @@ TOOLS = [
     {
         "name": "read_docs",
         "description": (
-            "Read your documentation files to recall learnings and patterns. "
-            "Available files: MEMORY.md (system info), LEARNINGS.md (experience), "
-            "API_REFERENCE.md (extended API docs), TASKS.md (active task state)."
+            "Read your documentation files. "
+            "Available: REFERENCE.md (API docs, Docker architecture, storage details), "
+            "MEMORY.md (your discovered knowledge, user preferences), "
+            "TASKS.md (active task state — read this when resuming work)."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "file": {
                     "type": "string",
-                    "enum": ["MEMORY.md", "LEARNINGS.md", "API_REFERENCE.md", "TASKS.md"],
+                    "enum": ["MEMORY.md", "REFERENCE.md", "TASKS.md"],
                     "description": "Which documentation file to read",
                 }
             },
@@ -53,16 +55,16 @@ TOOLS = [
     {
         "name": "update_docs",
         "description": (
-            "Update your documentation files to remember things for future conversations. "
-            "Use this to record learnings, API patterns, or system-specific information. "
-            "Use TASKS.md to track active task progress (updated frequently during execution)."
+            "Write to your documentation files. "
+            "MEMORY.md: permanent facts and user preferences. "
+            "TASKS.md: active task progress (update freely during execution)."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "file": {
                     "type": "string",
-                    "enum": ["MEMORY.md", "LEARNINGS.md", "API_REFERENCE.md", "TASKS.md"],
+                    "enum": ["MEMORY.md", "TASKS.md"],
                     "description": "Which documentation file to update",
                 },
                 "content": {
@@ -81,8 +83,8 @@ TOOLS = [
 ]
 
 
-class PlexAgent:
-    """AI agent for managing Plex media server through Telegram."""
+class BlackbeardAgent:
+    """Blackbeard - AI agent for managing a media server through Telegram."""
 
     def __init__(self):
         """Initialize the agent with Claude API client."""
@@ -156,47 +158,64 @@ class PlexAgent:
             return f"Updating {tool_input.get('file', 'documentation')}"
         return f"Using {tool_name}"
 
-    def process_message(self, user_message: str, conversation_history=None, max_turns: int = 12, interrupt_flag=None, progress_callback=None) -> str:
+    def process_message(self, user_message: str, conversation_history=None, max_turns: int = 12, interrupt_flag=None, progress_callback=None) -> Dict[str, Any]:
         """
-        Process a user message and return the agent's response.
+        Process a user message and return the agent's response with tool log.
 
         Args:
             user_message: The message from the user
             conversation_history: List of previous messages in this conversation
             max_turns: Maximum number of agent turns (API calls) to prevent infinite loops
             interrupt_flag: Callable that returns True if processing should be interrupted
-            progress_callback: Optional callback(description, completed) for progress updates
+            progress_callback: Optional callback(description, summary, completed) for progress updates
 
         Returns:
-            The agent's final response
+            Dict with "response" (str) and "tool_log" (list of tool interactions)
         """
         # Start with conversation history, then add current message
         messages = list(conversation_history) if conversation_history else []
         messages.append({"role": "user", "content": user_message})
 
         turn_count = 0
+        tool_log = []  # Track tool interactions for conversation history
+
+        def _make_result(text: str) -> Dict[str, Any]:
+            return {"response": text, "tool_log": tool_log}
 
         while turn_count < max_turns:
             # Check for interrupt
             if interrupt_flag and interrupt_flag():
                 logger.info("Agent interrupted by user")
-                return "⏹️ Task interrupted by user."
+                return _make_result("⏹️ Task interrupted by user.")
 
             turn_count += 1
             logger.info(f"Agent turn {turn_count}/{max_turns}")
+
+            # Inject turn counter into system prompt
+            system_with_turn = f"[Turn {turn_count}/{max_turns}]\n\n{self.system_instructions}"
+
+            # Save-state trigger at turn 10
+            if turn_count == 10:
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        "[SYSTEM: You are at turn 10/12. Update TASKS.md with current progress now, "
+                        "then summarize for the user what you completed and what remains.]"
+                    ),
+                })
 
             # Call Claude API
             response = self.client.messages.create(
                 model=self.model,
                 max_tokens=4096,
-                system=self.system_instructions,
+                system=system_with_turn,
                 tools=TOOLS,
                 messages=messages,
             )
 
             # Check for interrupt after API call
             if interrupt_flag and interrupt_flag():
-                return "⏹️ Task interrupted by user."
+                return _make_result("⏹️ Task interrupted by user.")
 
             # Check stop reason
             if response.stop_reason == "end_turn":
@@ -206,7 +225,7 @@ class PlexAgent:
                     if block.type == "text":
                         final_text += block.text
                 logger.info(f"Agent finished: {final_text[:100]}...")
-                return final_text or "Done."
+                return _make_result(final_text or "Done.")
 
             elif response.stop_reason == "tool_use":
                 # Agent wants to use tools
@@ -219,7 +238,7 @@ class PlexAgent:
                     if block.type == "tool_use":
                         # Check for interrupt before tool execution
                         if interrupt_flag and interrupt_flag():
-                            return "⏹️ Task interrupted by user."
+                            return _make_result("⏹️ Task interrupted by user.")
 
                         tool_name = block.name
                         tool_input = block.input
@@ -227,21 +246,31 @@ class PlexAgent:
                         # Notify progress callback that tool is starting
                         if progress_callback:
                             description = self._format_tool_description(tool_name, tool_input)
-                            progress_callback(description, completed=False)
+                            progress_callback(description, summary=None, completed=False)
 
                         # Execute the tool
                         result = self._execute_tool(tool_name, tool_input)
-
-                        # Notify progress callback that tool is complete
-                        if progress_callback:
-                            description = self._format_tool_description(tool_name, tool_input)
-                            progress_callback(description, completed=True)
 
                         # Format result for Claude
                         if result.get("success"):
                             content = result.get("output") or result.get("content") or result.get("message", "")
                         else:
                             content = f"Error: {result.get('error', 'Unknown error')}"
+
+                        # Build compact summary for tool log and progress message
+                        summary = content[:200] if len(content) > 200 else content
+
+                        # Record in tool log for conversation history
+                        tool_log.append({
+                            "tool": tool_name,
+                            "input": tool_input.get("command", "") if tool_name == "execute_command" else tool_input.get("file", ""),
+                            "summary": summary,
+                        })
+
+                        # Notify progress callback with summary
+                        if progress_callback:
+                            description = self._format_tool_description(tool_name, tool_input)
+                            progress_callback(description, summary=summary, completed=True)
 
                         # Executor already processed output, no truncation needed
                         tool_results.append(
@@ -257,12 +286,12 @@ class PlexAgent:
 
             else:
                 # Unexpected stop reason
-                return f"Unexpected stop reason: {response.stop_reason}"
+                return _make_result(f"Unexpected stop reason: {response.stop_reason}")
 
         logger.warning(f"Max turns ({max_turns}) reached without completion")
-        return f"Reached maximum of {max_turns} steps. Task incomplete - consider breaking into smaller subtasks."
+        return _make_result(f"Reached maximum of {max_turns} steps. Task incomplete - consider breaking into smaller subtasks.")
 
 
-def create_agent() -> PlexAgent:
+def create_agent() -> BlackbeardAgent:
     """Factory function to create a new agent instance."""
-    return PlexAgent()
+    return BlackbeardAgent()

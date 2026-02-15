@@ -1,4 +1,4 @@
-"""Plex Telegram Bot - Main entry point."""
+"""Blackbeard - AI media server manager. Telegram bot entry point."""
 
 import asyncio
 import logging
@@ -69,22 +69,19 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     welcome_message = """
-🤖 **Plex Bot** - AI-powered media server manager
+🏴‍☠️ **Blackbeard** - AI-powered media server captain
 
-I can help you:
+I manage your fleet:
 • Request TV shows and movies
 • Manage downloads
 • Organize media files
 • Check library status
-• And much more!
 
-Just chat with me naturally. Examples:
+Just tell me what you want:
 • "Get me Breaking Bad season 5"
 • "What's downloading right now?"
 • "Do I have The Office?"
 • "Check disk space"
-
-I'm powered by Claude AI and have access to your Sonarr, Radarr, qBittorrent, and Plex.
 """
     await update.message.reply_text(welcome_message, parse_mode="Markdown")
 
@@ -139,7 +136,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Unauthorized user.")
         return
 
-    await update.message.reply_text("🟢 Bot is online and ready!")
+    await update.message.reply_text("🏴‍☠️ Blackbeard is online and ready.")
 
 
 async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -208,24 +205,33 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         actions = []
 
         # Create progress callback
-        def progress_callback(description: str, completed: bool):
+        def progress_callback(description: str, summary: str = None, completed: bool = False):
             """Update progress message as agent executes tools."""
             # Update or add action
             found = False
             for action in actions:
                 if action["description"] == description:
                     action["completed"] = completed
+                    if summary:
+                        action["summary"] = summary
                     found = True
                     break
 
             if not found:
-                actions.append({"description": description, "completed": completed})
+                actions.append({"description": description, "completed": completed, "summary": summary})
 
-            # Format progress message
+            # Format progress message with summaries
             lines = []
             for action in actions:
                 emoji = "✓" if action["completed"] else "⏳"
-                lines.append(f"{emoji} {action['description']}")
+                line = f"{emoji} {action['description']}"
+                # Append compact summary for completed actions
+                if action["completed"] and action.get("summary"):
+                    # Show first line of summary, truncated
+                    first_line = action["summary"].split("\n")[0][:80]
+                    if first_line:
+                        line += f"\n   → {first_line}"
+                lines.append(line)
 
             progress_text = "\n".join(lines) if lines else "⏳ Working on your request..."
 
@@ -237,12 +243,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 logger.warning(f"Failed to update progress message: {e}")
 
         # Process message with agent (with history and progress callback)
-        response = agent.process_message(
+        result = agent.process_message(
             user_message,
             conversation_history=history,
             interrupt_flag=lambda: processing_interrupted,
             progress_callback=progress_callback
         )
+
+        response = result["response"]
+        tool_log = result["tool_log"]
 
         # Check if interrupted
         if processing_interrupted:
@@ -252,9 +261,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Send final response as NEW message (don't edit progress message)
         await update.message.reply_text(response)
 
+        # Build history entry with tool log for procedural memory
+        assistant_entry = response
+        if tool_log:
+            actions_summary = " | ".join(
+                f"{t['tool']}({t['input']}) → {t['summary'][:80]}"
+                for t in tool_log
+            )
+            assistant_entry = f"[Actions: {actions_summary}]\n\n{response}"
+
         # Update conversation history (truncate long messages to prevent context overflow)
         history.append({"role": "user", "content": truncate_message(user_message)})
-        history.append({"role": "assistant", "content": truncate_message(response)})
+        history.append({"role": "assistant", "content": truncate_message(assistant_entry)})
 
         # Trim history if too long (keep last N exchanges = 2N messages)
         if len(history) > MAX_HISTORY_MESSAGES * 2:

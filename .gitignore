@@ -51,9 +51,8 @@ Thumbs.db
 *.log
 logs/
 
-# Runtime docs (bot modifies these)
+# Agent runtime docs (bot modifies these on server, not in git)
 docs/MEMORY.md
-docs/LEARNINGS.md
 docs/TASKS.md
 
 # Testing
