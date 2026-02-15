@@ -12,15 +12,33 @@ This is an AI-powered Telegram bot that manages a home Plex media server. It use
 - **CLI-first**: Generic `api-call` wrapper for all service APIs
 - **Self-documenting**: Agent can update its own docs in `docs/`
 - **Secure**: Command whitelist, .env blocking, safe deletion
+- **Turn limit**: 12 turns per message (configurable in bot/agent.py)
+- **Extended thinking**: Agent uses reasoning tokens to plan before executing
+- **Memory architecture**:
+  - `MEMORY.md` - Permanent facts (Docker setup, paths, workflows)
+  - `TASKS.md` - Active task state (ephemeral, resumable across turn limits)
+  - `LEARNINGS.md` - Agent learnings from experiences
+  - `API_REFERENCE.md` - API behavior documentation
+- **Progress tracking**: Real-time updates as agent executes (implemented)
 
 ## Key Files
 
+### Core Bot Files
 - `AGENT.md` — Instructions for the bot agent (loaded at runtime)
 - `SOUL.md` — Agent personality (optional, for future use)
-- `bot/main.py` — Telegram bot entry point
-- `bot/agent.py` — Claude API integration
+- `bot/main.py` — Telegram bot entry point (progress tracking, conversation history)
+- `bot/agent.py` — Claude API integration (turn limit: 12)
 - `bot/config.py` — Configuration management
-- `scripts/api-call` — Generic API wrapper CLI
+- `bot/tools/docs_manager.py` — Agent documentation management tool
+
+### Runtime Documentation (Modified by Bot)
+- `docs/MEMORY.md` — Permanent system knowledge (Docker, paths, workflows) ⚠️ In .gitignore
+- `docs/LEARNINGS.md` — Agent learnings from experiences ⚠️ In .gitignore
+- `docs/API_REFERENCE.md` — API behavior and quirks
+- `docs/TASKS.md` — Active task state (ephemeral, resumable) ⚠️ In .gitignore
+
+### CLI Tools
+- `scripts/api-call` — Generic API wrapper CLI (qbt, sonarr, radarr, plex)
 - `scripts/recycle-bin` — Safe file deletion
 
 ## Development Workflow
@@ -55,6 +73,25 @@ sudo systemctl status plex-bot
 - Keep AGENT.md focused on bot operations, not development
 - Test locally before deploying to server
 - File operations won't work locally (need server paths)
+- **Runtime docs are in .gitignore**: `docs/MEMORY.md`, `docs/LEARNINGS.md`, `docs/TASKS.md`
+  - These files are modified by the bot on the server
+  - `git pull` won't overwrite them (protected by .gitignore)
+  - Don't commit these files - they're server-specific runtime state
+
+## Docker Architecture
+
+The media server runs in Docker containers defined in `~/arr-stack/docker-compose.yml`:
+- **qBittorrent**: Downloads to `/home/mermanarchy/downloads` (system disk)
+- **Sonarr/Radarr**: Move completed files to `/mnt/storage/{TV Shows,Movies}` (big storage)
+- **Gluetun**: VPN for qBittorrent
+- **Prowlarr**: Indexer manager
+
+**Critical detail**: The bot's `docs/MEMORY.md` contains comprehensive Docker architecture documentation including:
+- Container path mappings (container paths vs host paths)
+- File workflow (download → import → organize)
+- Storage locations and capacity
+
+**The bot needs this context** to understand where files are and how they move through the system.
 
 ## Deployment
 
@@ -87,6 +124,27 @@ If debugging becomes frequent, set up SSH keys for direct access.
 - Service status: `sudo systemctl status plex-bot`
 - Restart service: `sudo systemctl restart plex-bot`
 
+## Current Features
+
+### Progress Tracking Messages ✅ Implemented
+The bot shows real-time progress as the agent executes tools:
+```
+Working on your request...
+✓ Searched Radarr for "Star Wars"
+✓ Checked root folders
+⏳ Getting quality profiles...
+```
+
+**Implementation**: `bot/main.py` lines 210-237 (progress_callback function)
+
+**Known issue**: Progress updates appear at the end instead of in real-time due to `loop.create_task()` scheduling async edits without awaiting them. All edits queue up and fire when the event loop processes tasks at the end.
+
+### Memory & Task Management ✅ Implemented
+- **Conversation history**: Last 10 exchanges (20 messages), 8000 chars per message
+- **Task state**: Persisted in TASKS.md for resuming across turn limits
+- **Permanent memory**: System facts in MEMORY.md (Docker, paths, workflows)
+- **Turn budget**: 12 turns per message with explicit budget management
+
 ## Future Improvements
 
 ### Scheduled Check-ins
@@ -109,13 +167,5 @@ Proactive status updates at 8 AM, 12 PM, 4 PM, and 8 PM Central Time.
 📊 2 active torrents, 150 GB free
 ```
 
-### Progress Tracking Messages
-Edit a single message to show real-time progress as the agent works:
-```
-Working on your request...
-✓ Action 1/4: Searched Radarr for "Star Wars"
-✓ Action 2/4: Checked root folders
-⏳ Action 3/4: Getting quality profiles...
-```
-
-Keep the final message showing all completed actions.
+### Fix Progress Tracking Real-time Updates
+Currently progress updates appear at the end. Need to await edits or use different approach for true real-time updates.
