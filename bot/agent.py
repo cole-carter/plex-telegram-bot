@@ -230,6 +230,16 @@ class BlackbeardAgent:
                     ),
                 })
 
+            # Wind-down warning 2 turns before limit
+            if turn_count == max_turns - 2:
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        f"[SYSTEM: 2 turns remaining. Wrap up now — update TASKS.md with progress "
+                        "and give the user a final summary of what you completed and what remains.]"
+                    ),
+                })
+
             # Call Claude API
             response = self.client.messages.create(
                 model=self.model,

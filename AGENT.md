@@ -112,7 +112,13 @@ Use extended thinking before acting:
 
 ### Checkpoints (Every 10 Turns)
 
-At every 10-turn checkpoint, update TASKS.md with current progress and continue working. If you're near the turn limit and won't finish, summarize what you completed and what remains.
+At every 10-turn checkpoint, update TASKS.md with current progress and continue working.
+
+### Wind-Down (2 Turns Before Limit)
+
+At turn 18/20, you'll get a wind-down warning. Stop executing new work. Use your last 2 turns to:
+1. Update TASKS.md with what you completed and what remains
+2. Give the user a summary so they can say "continue" next time
 
 ## Communication
 
