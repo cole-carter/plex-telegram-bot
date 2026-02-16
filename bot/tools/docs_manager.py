@@ -4,10 +4,16 @@ from pathlib import Path
 from typing import Dict, Any, List
 
 # Files the agent can read
-AGENT_READABLE_DOCS = ["MEMORY.md", "REFERENCE.md", "TASKS.md"]
+AGENT_READABLE_DOCS = ["MEMORY.md", "REFERENCE.md", "TASKS.md", "SOUL.md"]
 
 # Files the agent can write (REFERENCE.md is read-only, developer-maintained)
-AGENT_WRITABLE_DOCS = ["MEMORY.md", "TASKS.md"]
+AGENT_WRITABLE_DOCS = ["MEMORY.md", "TASKS.md", "SOUL.md"]
+
+def _resolve_doc_path(file: str) -> Path:
+    """Resolve a doc filename to its path in the docs directory."""
+    from bot.config import DOCS_DIR
+
+    return DOCS_DIR / file
 
 
 def read_docs(file: str) -> Dict[str, Any]:
@@ -28,9 +34,7 @@ def read_docs(file: str) -> Dict[str, Any]:
         }
 
     try:
-        from bot.config import DOCS_DIR
-
-        file_path = DOCS_DIR / file
+        file_path = _resolve_doc_path(file)
 
         if not file_path.exists():
             return {
@@ -73,9 +77,7 @@ def update_docs(file: str, content: str, mode: str = "append") -> Dict[str, Any]
         }
 
     try:
-        from bot.config import DOCS_DIR
-
-        file_path = DOCS_DIR / file
+        file_path = _resolve_doc_path(file)
 
         if mode == "append":
             # Append to existing content

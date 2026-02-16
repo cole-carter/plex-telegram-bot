@@ -89,13 +89,18 @@ def is_command_safe(command: str) -> tuple[bool, str]:
     return True, ""
 
 
-def execute_command(command: str, timeout: int = 120) -> Dict[str, Any]:
+MAX_RAW_OUTPUT_BYTES = 10000  # 10KB safety cap for raw mode
+
+
+def execute_command(command: str, timeout: int = 120, raw: bool = False, context: str = "") -> Dict[str, Any]:
     """
     Execute a shell command safely.
 
     Args:
         command: The command to execute
         timeout: Command timeout in seconds
+        raw: If True, return output directly without executor processing
+        context: Intent description passed to executor for better summarization
 
     Returns:
         dict with keys: success, output, error
@@ -141,11 +146,23 @@ def execute_command(command: str, timeout: int = 120) -> Dict[str, Any]:
                 "error": result.stderr,
             }
 
-        # Command succeeded - route through executor for intelligent processing
+        # Raw mode: return output directly with safety cap
+        if raw:
+            output = result.stdout
+            if len(output) > MAX_RAW_OUTPUT_BYTES:
+                output = (
+                    output[:MAX_RAW_OUTPUT_BYTES]
+                    + f"\n\n[⚠️ Raw output truncated at {MAX_RAW_OUTPUT_BYTES // 1000}KB. "
+                    f"Use executor mode (raw=false) for large outputs.]"
+                )
+            logger.info(f"Raw mode: returning {len(output)} chars directly")
+            return {"success": True, "output": output, "error": ""}
+
+        # Route through executor for intelligent processing
         from bot.tools.executor import execute_with_executor
 
         logger.info(f"Command succeeded, processing output with executor ({len(result.stdout)} chars)")
-        return execute_with_executor(command, result.stdout)
+        return execute_with_executor(command, result.stdout, context=context)
 
     except subprocess.TimeoutExpired:
         return {

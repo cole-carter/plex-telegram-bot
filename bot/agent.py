@@ -3,7 +3,7 @@
 import anthropic
 import logging
 from typing import List, Dict, Any, Callable
-from bot.config import ANTHROPIC_API_KEY, ORCHESTRATOR_MODEL, AGENT_MD_PATH, SOUL_MD_PATH
+from bot.config import ANTHROPIC_API_KEY, ORCHESTRATOR_MODEL, AGENT_MD_PATH, SOUL_MD_PATH, MEMORY_MD_PATH
 from bot.tools.command_executor import execute_command
 from bot.tools.docs_manager import read_docs, update_docs
 
@@ -27,7 +27,23 @@ TOOLS = [
                 "command": {
                     "type": "string",
                     "description": "The shell command to execute",
-                }
+                },
+                "raw": {
+                    "type": "boolean",
+                    "description": (
+                        "If true, return command output directly without executor processing. "
+                        "Use when you've already filtered output (jq, grep, head) and expect a small result."
+                    ),
+                },
+                "context": {
+                    "type": "string",
+                    "description": (
+                        "Tell the executor what you need from this output. "
+                        "E.g. 'I need the series ID and title for Fresh Off the Boat' or "
+                        "'Return just the episode IDs for missing episodes'. "
+                        "Only used when raw is false (default)."
+                    ),
+                },
             },
             "required": ["command"],
         },
@@ -38,14 +54,15 @@ TOOLS = [
             "Read your documentation files. "
             "Available: REFERENCE.md (API docs, Docker architecture, storage details), "
             "MEMORY.md (your discovered knowledge, user preferences), "
-            "TASKS.md (active task state — read this when resuming work)."
+            "TASKS.md (active task state — read this when resuming work), "
+            "SOUL.md (your personality and tone — you own this file)."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "file": {
                     "type": "string",
-                    "enum": ["MEMORY.md", "REFERENCE.md", "TASKS.md"],
+                    "enum": ["MEMORY.md", "REFERENCE.md", "TASKS.md", "SOUL.md"],
                     "description": "Which documentation file to read",
                 }
             },
@@ -57,14 +74,15 @@ TOOLS = [
         "description": (
             "Write to your documentation files. "
             "MEMORY.md: permanent facts and user preferences. "
-            "TASKS.md: active task progress (update freely during execution)."
+            "TASKS.md: active task progress (update freely during execution). "
+            "SOUL.md: your personality and tone — refine how you communicate."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "file": {
                     "type": "string",
-                    "enum": ["MEMORY.md", "TASKS.md"],
+                    "enum": ["MEMORY.md", "TASKS.md", "SOUL.md"],
                     "description": "Which documentation file to update",
                 },
                 "content": {
@@ -97,11 +115,17 @@ class BlackbeardAgent:
         else:
             raise FileNotFoundError(f"AGENT.md not found at {AGENT_MD_PATH}")
 
-        # Optionally append SOUL.md for personality
+        # Append SOUL.md for personality
         if SOUL_MD_PATH.exists():
             soul_content = SOUL_MD_PATH.read_text().strip()
-            if soul_content and len(soul_content) > 50:  # Only if non-empty
+            if soul_content and len(soul_content) > 50:
                 system_instructions += "\n\n" + soul_content
+
+        # Append MEMORY.md so agent always has its learned knowledge
+        if MEMORY_MD_PATH.exists():
+            memory_content = MEMORY_MD_PATH.read_text().strip()
+            if memory_content:
+                system_instructions += "\n\n## Your Memory\n\n" + memory_content
 
         self.system_instructions = system_instructions
 
@@ -118,8 +142,10 @@ class BlackbeardAgent:
         """
         # Log tool execution
         if tool_name == "execute_command":
-            logger.info(f"Tool: execute_command({tool_input['command']})")
-            result = execute_command(tool_input["command"])
+            raw = tool_input.get("raw", False)
+            context = tool_input.get("context", "")
+            logger.info(f"Tool: execute_command({tool_input['command']}, raw={raw})")
+            result = execute_command(tool_input["command"], raw=raw, context=context)
         elif tool_name == "read_docs":
             logger.info(f"Tool: read_docs({tool_input['file']})")
             result = read_docs(tool_input["file"])

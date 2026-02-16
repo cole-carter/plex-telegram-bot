@@ -10,7 +10,8 @@ load_dotenv()
 # Project paths
 PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 AGENT_MD_PATH = PROJECT_ROOT / "AGENT.md"
-SOUL_MD_PATH = PROJECT_ROOT / "SOUL.md"
+SOUL_MD_PATH = PROJECT_ROOT / "docs" / "SOUL.md"
+MEMORY_MD_PATH = PROJECT_ROOT / "docs" / "MEMORY.md"
 DOCS_DIR = PROJECT_ROOT / "docs"
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 

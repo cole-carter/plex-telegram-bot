@@ -57,6 +57,32 @@ def truncate_message(content: str, max_length: int = MAX_MESSAGE_LENGTH) -> str:
     return content[:max_length] + f"\n\n[... truncated {len(content) - max_length} characters]"
 
 
+TELEGRAM_MAX_LENGTH = 4096
+
+
+def chunk_message(text: str, max_length: int = TELEGRAM_MAX_LENGTH) -> list[str]:
+    """Split a long message into Telegram-safe chunks, breaking at newlines."""
+    if len(text) <= max_length:
+        return [text]
+
+    chunks = []
+    while text:
+        if len(text) <= max_length:
+            chunks.append(text)
+            break
+
+        # Find a newline to break at within the limit
+        split_at = text.rfind("\n", 0, max_length)
+        if split_at == -1 or split_at < max_length // 2:
+            # No good newline break — hard split at limit
+            split_at = max_length
+
+        chunks.append(text[:split_at])
+        text = text[split_at:].lstrip("\n")
+
+    return chunks
+
+
 def is_authorized(update: Update) -> bool:
     """Check if the user is authorized to use the bot."""
     user_id = update.effective_user.id
@@ -260,7 +286,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             processing_interrupted = False
 
         # Send final response as NEW message (don't edit progress message)
-        await update.message.reply_text(response)
+        # Telegram limits messages to 4096 chars — chunk if needed
+        if len(response) <= 4096:
+            await update.message.reply_text(response)
+        else:
+            chunks = chunk_message(response)
+            for chunk in chunks:
+                await update.message.reply_text(chunk)
 
         # Build history entry with tool log for procedural memory
         assistant_entry = response

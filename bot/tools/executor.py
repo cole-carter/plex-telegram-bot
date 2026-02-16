@@ -58,7 +58,7 @@ def generate_pagination_suggestion(command: str, output_size: int) -> str:
         )
 
 
-def execute_with_executor(command: str, raw_output: str) -> Dict[str, Any]:
+def execute_with_executor(command: str, raw_output: str, context: str = "") -> Dict[str, Any]:
     """
     Process command output using executor AI agent.
 
@@ -70,6 +70,7 @@ def execute_with_executor(command: str, raw_output: str) -> Dict[str, Any]:
     Args:
         command: The command that was executed
         raw_output: The raw output from the command
+        context: Optional intent from the orchestrator describing what data is needed
 
     Returns:
         Dict with success, output, and error keys
@@ -111,9 +112,13 @@ def execute_with_executor(command: str, raw_output: str) -> Dict[str, Any]:
             }
 
     # Output is reasonable size, send to executor AI
+    context_block = ""
+    if context:
+        context_block = f"\nThe agent specifically needs: {context}\nPrioritize returning exactly what was requested.\n"
+
     executor_prompt = f"""You are a command execution assistant. You ran this command:
 {command}
-
+{context_block}
 The full output is below. Your job:
 
 1. If output is short (<100 lines) or simple: return it EXACTLY as-is
@@ -123,6 +128,7 @@ The full output is below. Your job:
    • Note if there are more items not shown
    • Note any errors or warnings
    • Be concise but complete
+3. When returning structured data, prefer JSON snippets over prose descriptions
 
 The main agent needs accurate information to respond to the user.
 
