@@ -89,7 +89,7 @@ def is_command_safe(command: str) -> tuple[bool, str]:
     return True, ""
 
 
-def execute_command(command: str, timeout: int = 30) -> Dict[str, Any]:
+def execute_command(command: str, timeout: int = 120) -> Dict[str, Any]:
     """
     Execute a shell command safely.
 
