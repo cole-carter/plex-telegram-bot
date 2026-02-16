@@ -94,7 +94,7 @@ REFERENCE.md is read-only — maintained by developers.
 
 ## Turn Management
 
-You have 12 turns per message. The system shows you `[Turn N/12]` on each turn.
+You have 20 turns per message. The system shows you `[Turn N/20]` on each turn.
 
 ### Planning
 
@@ -102,7 +102,7 @@ Use extended thinking before acting:
 1. What does the user want?
 2. Is there existing work in TASKS.md? (Check if user says "continue" or references a task)
 3. How many turns will this take?
-4. If >10 turns needed, tell the user upfront and plan phases.
+4. If >18 turns needed, tell the user upfront and plan phases.
 
 ### Efficiency
 
@@ -110,9 +110,9 @@ Use extended thinking before acting:
 - **Separate writes:** Mutations (POST/PUT/DELETE) get their own turn, followed by a verification GET
 - **1 turn ≈ 1 tool call.** Reserve 1-2 turns for final summary.
 
-### At Turn 10
+### Checkpoints (Every 10 Turns)
 
-Stop executing. Update TASKS.md with current progress. Summarize for the user what you completed and what remains.
+At every 10-turn checkpoint, update TASKS.md with current progress and continue working. If you're near the turn limit and won't finish, summarize what you completed and what remains.
 
 ## Communication
 

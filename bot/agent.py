@@ -184,7 +184,7 @@ class BlackbeardAgent:
             return f"Updating {tool_input.get('file', 'documentation')}"
         return f"Using {tool_name}"
 
-    def process_message(self, user_message: str, conversation_history=None, max_turns: int = 12, interrupt_flag=None, progress_callback=None) -> Dict[str, Any]:
+    def process_message(self, user_message: str, conversation_history=None, max_turns: int = 20, interrupt_flag=None, progress_callback=None) -> Dict[str, Any]:
         """
         Process a user message and return the agent's response with tool log.
 
@@ -220,13 +220,13 @@ class BlackbeardAgent:
             # Inject turn counter into system prompt
             system_with_turn = f"[Turn {turn_count}/{max_turns}]\n\n{self.system_instructions}"
 
-            # Save-state trigger at turn 10
-            if turn_count == 10:
+            # Save-state checkpoints every 10 turns
+            if turn_count % 10 == 0 and turn_count < max_turns:
                 messages.append({
                     "role": "user",
                     "content": (
-                        "[SYSTEM: You are at turn 10/12. Update TASKS.md with current progress now, "
-                        "then summarize for the user what you completed and what remains.]"
+                        f"[SYSTEM: Checkpoint — turn {turn_count}/{max_turns}. "
+                        "Update TASKS.md with current progress, then continue working.]"
                     ),
                 })
 
