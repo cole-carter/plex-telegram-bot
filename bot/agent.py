@@ -243,7 +243,7 @@ class BlackbeardAgent:
             # Call Claude API
             response = self.client.messages.create(
                 model=self.model,
-                max_tokens=4096,
+                max_tokens=8192,
                 system=system_with_turn,
                 tools=TOOLS,
                 messages=messages,
@@ -254,12 +254,14 @@ class BlackbeardAgent:
                 return _make_result("⏹️ Task interrupted by user.")
 
             # Check stop reason
-            if response.stop_reason == "end_turn":
-                # Agent is done, extract final response
+            if response.stop_reason in ("end_turn", "max_tokens"):
+                # Agent is done (or hit output limit — return what we have)
                 final_text = ""
                 for block in response.content:
                     if block.type == "text":
                         final_text += block.text
+                if response.stop_reason == "max_tokens":
+                    logger.warning("Response truncated by max_tokens limit")
                 logger.info(f"Agent finished: {final_text[:100]}...")
                 return _make_result(final_text or "Done.")
 
