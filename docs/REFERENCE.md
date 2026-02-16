@@ -15,6 +15,7 @@ All services run in Docker containers defined in `~/arr-stack/docker-compose.yml
 | prowlarr | Indexer manager | — |
 | radarr | Movie management | — |
 | sonarr | TV show management | — |
+| bazarr | Subtitle management | — |
 
 ### Container Path Mappings
 
@@ -29,6 +30,10 @@ All services run in Docker containers defined in `~/arr-stack/docker-compose.yml
 **Sonarr:**
 - Container `/tv` → Host `/mnt/storage/TV Shows`
 - Container `/downloads` → Host `/home/mermanarchy/downloads`
+
+**Bazarr:**
+- Container `/movies` → Host `/mnt/storage/Movies`
+- Container `/tv` → Host `/mnt/storage/TV Shows`
 
 ### File Workflow
 
@@ -278,4 +283,93 @@ api-call plex GET /library/sections/2/refresh
 **Recently added:**
 ```bash
 api-call plex GET /library/recentlyAdded
+```
+
+---
+
+## Bazarr API (Subtitles)
+
+**Base:** `http://192.168.1.14:6767/api`
+
+### Quick Status
+
+**Badge counts (missing subtitle totals):**
+```bash
+api-call bazarr GET /badges
+```
+Returns `episodes` and `movies` counts of items missing subtitles, plus provider/connection status.
+
+**System status:**
+```bash
+api-call bazarr GET /system/status
+```
+
+### List What's Missing
+
+**Episodes missing subtitles:**
+```bash
+api-call bazarr GET /episodes/wanted
+```
+Returns `data` array with `seriesTitle`, `episode_number`, `missing_subtitles`, `sonarrSeriesId`, `sonarrEpisodeId`.
+
+**Movies missing subtitles:**
+```bash
+api-call bazarr GET /movies/wanted
+```
+Returns `data` array with `title`, `missing_subtitles`, `radarrId`.
+
+### Download Subtitles
+
+**Auto-download for an episode (Bazarr picks best match):**
+```bash
+api-call bazarr PATCH /episodes/subtitles -d '{"seriesid": 1, "episodeid": 100, "language": "en", "forced": "False", "hi": "False"}'
+```
+Returns `204 No Content` on success.
+
+**Auto-download for a movie:**
+```bash
+api-call bazarr PATCH /movies/subtitles -d '{"radarrid": 42, "language": "en", "forced": "False", "hi": "False"}'
+```
+
+### Bulk Search
+
+**Search all missing for a series:**
+```bash
+api-call bazarr PATCH /series -d '{"seriesid": 1, "action": "search-missing"}'
+```
+
+**Search all missing for a movie:**
+```bash
+api-call bazarr PATCH /movies -d '{"radarrid": 42, "action": "search-missing"}'
+```
+
+### Browse Library (Subtitle Status)
+
+**List series with subtitle counts:**
+```bash
+api-call bazarr GET /series
+```
+Returns `episodeFileCount`, `episodeMissingCount` per series.
+
+**List episodes for a series:**
+```bash
+api-call bazarr GET /episodes -q "seriesid[]=1"
+```
+Returns `subtitles` (existing) and `missing_subtitles` per episode.
+
+**List movies:**
+```bash
+api-call bazarr GET /movies
+```
+
+### Provider Status
+
+**Check if providers are throttled:**
+```bash
+api-call bazarr GET /providers
+```
+
+**Reset throttled providers:**
+```bash
+api-call bazarr POST /providers -d '{"action": "reset"}'
 ```

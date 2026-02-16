@@ -6,6 +6,7 @@ secrets.*
 
 # Development instructions (local only)
 CLAUDE.md
+SERVER.md
 
 # Python
 __pycache__/

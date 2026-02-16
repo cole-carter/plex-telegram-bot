@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Generic API caller for Plex bot services.
-Handles authentication automatically for Sonarr, Radarr, qBittorrent, and Plex.
+Generic API caller for Blackbeard services.
+Handles authentication automatically for Sonarr, Radarr, qBittorrent, Plex, and Bazarr.
 
 Usage:
     api-call <service> <method> <endpoint> [options]
@@ -11,6 +11,7 @@ Examples:
     api-call radarr POST /movie -d '{"tmdbId": 12345}'
     api-call qbt GET /torrents/info
     api-call plex GET /library/sections
+    api-call bazarr GET /episodes
 """
 
 import sys
@@ -47,6 +48,13 @@ SERVICES = {
         "auth_type": "cookie",
         "username": os.getenv("QBITTORRENT_USER", "admin"),
         "password": os.getenv("QBITTORRENT_PASS"),
+    },
+    "bazarr": {
+        "base_url": os.getenv("BAZARR_URL", "http://192.168.1.14:6767"),
+        "api_path": "/api",
+        "auth_type": "header",
+        "auth_header": "X-API-KEY",
+        "auth_value": os.getenv("BAZARR_API_KEY"),
     },
 }
 

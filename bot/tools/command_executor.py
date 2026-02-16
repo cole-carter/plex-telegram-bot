@@ -118,6 +118,7 @@ def execute_command(command: str, timeout: int = 30) -> Dict[str, Any]:
             "RADARR_API_KEY", "RADARR_URL",
             "QBITTORRENT_USER", "QBITTORRENT_PASS", "QBITTORRENT_URL",
             "PLEX_TOKEN", "PLEX_URL",
+            "BAZARR_API_KEY", "BAZARR_URL",
         ]:
             if key in os.environ:
                 env[key] = os.environ[key]
