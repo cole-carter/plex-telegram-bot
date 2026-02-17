@@ -16,6 +16,7 @@ TOOLS = [
         "description": (
             "Execute a shell command on the server. "
             "You have access to: api-call (for service APIs), recycle-bin (safe deletion), "
+            "sonarr-find, radarr-find, sonarr-missing, qbt-status (helper scripts), "
             "and standard Unix commands (ls, find, mv, cp, mkdir, cat, grep, head, tail, file, du, df, stat). "
             "NEVER use rm - use recycle-bin instead. "
             "NEVER access .env or secret files. "
@@ -52,18 +53,17 @@ TOOLS = [
         "name": "read_docs",
         "description": (
             "Read your documentation files. "
-            "Available: REFERENCE.md (API docs, Docker architecture, storage details), "
-            "MEMORY.md (your discovered knowledge, user preferences), "
-            "TASKS.md (active task state — read this when resuming work), "
-            "SOUL.md (your personality and tone — you own this file)."
+            "Available: REFERENCE.md (API docs), MEMORY.md (your knowledge), "
+            "TASKS.md (active task state), SOUL.md (your personality). "
+            "Also: skills/<name>.md — your skill docs with tested patterns and workflows. "
+            "See the 'Your Skills' section in your prompt for available skills."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "file": {
                     "type": "string",
-                    "enum": ["MEMORY.md", "REFERENCE.md", "TASKS.md", "SOUL.md"],
-                    "description": "Which documentation file to read",
+                    "description": "Which file to read (e.g. 'REFERENCE.md', 'skills/sonarr.md')",
                 }
             },
             "required": ["file"],
@@ -74,20 +74,20 @@ TOOLS = [
         "description": (
             "Write to your documentation files. "
             "MEMORY.md: permanent facts and user preferences. "
-            "TASKS.md: active task progress (update freely during execution). "
-            "SOUL.md: your personality and tone — refine how you communicate."
+            "TASKS.md: active task progress. "
+            "SOUL.md: your personality and tone. "
+            "skills/<name>.md: update or create skill docs with tested patterns."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "file": {
                     "type": "string",
-                    "enum": ["MEMORY.md", "TASKS.md", "SOUL.md"],
-                    "description": "Which documentation file to update",
+                    "description": "Which file to update (e.g. 'MEMORY.md', 'skills/sonarr.md')",
                 },
                 "content": {
                     "type": "string",
-                    "description": "Content to add to the file",
+                    "description": "Content to write",
                 },
                 "mode": {
                     "type": "string",
@@ -121,10 +121,29 @@ class BlackbeardAgent:
             if soul_content and len(soul_content) > 50:
                 system_instructions += "\n\n" + soul_content
 
-        # Append MEMORY.md so agent always has its learned knowledge
+        # Inject available skills (progressive disclosure — names and descriptions only)
+        from bot.tools.docs_manager import list_skills
+        skills = list_skills()
+        if skills:
+            skills_list = "\n".join(
+                f"- `{s['filename']}`: {s['description']}"
+                for s in skills
+            )
+            system_instructions += (
+                "\n\n## Your Skills\n\n"
+                "You have skill docs with tested patterns and workflows. "
+                "Load one with `read_docs` when starting a relevant task:\n"
+                f"{skills_list}\n\n"
+                "You can also update skills or create new ones with `update_docs` "
+                "when you discover useful patterns."
+            )
+
+        # Append MEMORY.md (lean — should contain only short facts and preferences)
         if MEMORY_MD_PATH.exists():
             memory_content = MEMORY_MD_PATH.read_text().strip()
-            if memory_content:
+            # Only inject if there's real content beyond the header
+            header_only = memory_content.strip().startswith("# ") and memory_content.count("\n") < 5
+            if memory_content and not header_only:
                 system_instructions += "\n\n## Your Memory\n\n" + memory_content
 
         self.system_instructions = system_instructions

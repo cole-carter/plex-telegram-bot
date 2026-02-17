@@ -3,11 +3,25 @@
 from pathlib import Path
 from typing import Dict, Any, List
 
-# Files the agent can read
-AGENT_READABLE_DOCS = ["MEMORY.md", "REFERENCE.md", "TASKS.md", "SOUL.md"]
 
-# Files the agent can write (REFERENCE.md is read-only, developer-maintained)
-AGENT_WRITABLE_DOCS = ["MEMORY.md", "TASKS.md", "SOUL.md"]
+# Top-level files the agent can read/write
+_READABLE_TOP_LEVEL = ["MEMORY.md", "REFERENCE.md", "TASKS.md", "SOUL.md"]
+_WRITABLE_TOP_LEVEL = ["MEMORY.md", "TASKS.md", "SOUL.md"]
+
+
+def _is_valid_doc(file: str, writable: bool = False) -> bool:
+    """Check if a file path is a valid agent doc."""
+    # Top-level docs
+    allowed = _WRITABLE_TOP_LEVEL if writable else _READABLE_TOP_LEVEL
+    if file in allowed:
+        return True
+
+    # Skill files (readable and writable) — block path traversal
+    if file.startswith("skills/") and file.endswith(".md") and ".." not in file:
+        return True
+
+    return False
+
 
 def _resolve_doc_path(file: str) -> Path:
     """Resolve a doc filename to its path in the docs directory."""
@@ -16,21 +30,53 @@ def _resolve_doc_path(file: str) -> Path:
     return DOCS_DIR / file
 
 
+def list_skills() -> List[Dict]:
+    """Scan docs/skills/ and return list of {name, description, filename} for each skill."""
+    from bot.config import DOCS_DIR
+    skills_dir = DOCS_DIR / "skills"
+    if not skills_dir.exists():
+        return []
+
+    skills = []
+    for skill_file in sorted(skills_dir.glob("*.md")):
+        name = ""
+        description = ""
+        try:
+            content = skill_file.read_text()
+            for line in content.split("\n")[:5]:
+                if line.startswith("<!-- name:"):
+                    name = line.replace("<!-- name:", "").replace("-->", "").strip()
+                elif line.startswith("<!-- description:"):
+                    description = line.replace("<!-- description:", "").replace("-->", "").strip()
+        except Exception:
+            continue
+
+        if name and description:
+            skills.append({
+                "name": name,
+                "description": description,
+                "filename": f"skills/{skill_file.name}",
+            })
+
+    return skills
+
+
 def read_docs(file: str) -> Dict[str, Any]:
     """
     Read an agent documentation file.
 
     Args:
-        file: Name of the docs file (MEMORY.md, REFERENCE.md, or TASKS.md)
+        file: Name of the docs file (e.g. 'MEMORY.md', 'skills/sonarr.md')
 
     Returns:
         dict with keys: success, content, error
     """
-    if file not in AGENT_READABLE_DOCS:
+    if not _is_valid_doc(file, writable=False):
+        available = ", ".join(_READABLE_TOP_LEVEL) + ", skills/<name>.md"
         return {
             "success": False,
             "content": "",
-            "error": f"Cannot read '{file}'. Available files: {', '.join(AGENT_READABLE_DOCS)}",
+            "error": f"Cannot read '{file}'. Available: {available}",
         }
 
     try:
@@ -55,18 +101,19 @@ def update_docs(file: str, content: str, mode: str = "append") -> Dict[str, Any]
     Update an agent documentation file.
 
     Args:
-        file: Name of the docs file
+        file: Name of the docs file (e.g. 'MEMORY.md', 'skills/sonarr.md')
         content: Content to write
         mode: 'append' or 'replace'
 
     Returns:
         dict with keys: success, message, error
     """
-    if file not in AGENT_WRITABLE_DOCS:
+    if not _is_valid_doc(file, writable=True):
+        available = ", ".join(_WRITABLE_TOP_LEVEL) + ", skills/<name>.md"
         return {
             "success": False,
             "message": "",
-            "error": f"Cannot write to '{file}'. Writable files: {', '.join(AGENT_WRITABLE_DOCS)}",
+            "error": f"Cannot write to '{file}'. Writable: {available}",
         }
 
     if mode not in ["append", "replace"]:
@@ -78,6 +125,9 @@ def update_docs(file: str, content: str, mode: str = "append") -> Dict[str, Any]
 
     try:
         file_path = _resolve_doc_path(file)
+
+        # Ensure parent directory exists (for skills/)
+        file_path.parent.mkdir(parents=True, exist_ok=True)
 
         if mode == "append":
             # Append to existing content
@@ -105,4 +155,4 @@ def update_docs(file: str, content: str, mode: str = "append") -> Dict[str, Any]
 
 def list_available_docs() -> List[str]:
     """Return list of docs files the agent can read."""
-    return AGENT_READABLE_DOCS
+    return _READABLE_TOP_LEVEL

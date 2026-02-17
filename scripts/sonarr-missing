@@ -1,0 +1,8 @@
+#!/bin/bash
+# Usage: sonarr-missing <seriesId>
+# Returns: missing episodes grouped by season with counts
+if [ -z "$1" ]; then
+    echo "Usage: sonarr-missing <seriesId>"
+    exit 1
+fi
+api-call sonarr GET /episode -q "seriesId=$1" | jq '[.[] | select(.hasFile == false and .monitored == true) | {season: .seasonNumber, episode: .episodeNumber, title: .title, airDate: .airDate}] | sort_by(.season, .episode) | group_by(.season) | map({season: .[0].season, count: length, episodes: map("\(.episode)")})'

@@ -12,6 +12,10 @@ logger = logging.getLogger(__name__)
 ALLOWED_COMMANDS = [
     "api-call",
     "recycle-bin",
+    "sonarr-find",
+    "radarr-find",
+    "sonarr-missing",
+    "qbt-status",
     "ls",
     "find",
     "mv",
